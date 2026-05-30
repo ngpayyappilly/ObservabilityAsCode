@@ -1,0 +1,100 @@
+# Monaco Config Management Plugin (CMP v2) for Argo CD.
+# Lives on the argocd-repo-server sidecar; never runs as the main argocd-repo-server process.
+# Compatible with Argo CD v2.8+ CMP sidecar model.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ConfigManagementPlugin
+metadata:
+  name: monaco
+spec:
+  version: v1.0
+
+  # discover: detect repos that contain a Monaco manifest
+  discover:
+    find:
+      glob: "**/manifest.yaml"
+
+  # init: validate credentials and reachability before generate runs
+  init:
+    command: [sh, -c]
+    args:
+      - |
+        set -e
+
+        # Validate required env vars are set
+        if [ -z "$DT_URL" ] && [ -z "$DT_DEV_URL" ] && [ -z "$DT_STAGING_URL" ] && [ -z "$DT_PROD_URL" ]; then
+          echo "ERROR: No Dynatrace URL environment variable is set." \
+               "Expected DT_DEV_URL / DT_STAGING_URL / DT_PROD_URL." >&2
+          exit 1
+        fi
+
+        # Resolve URL and token for the target environment
+        DT_ENV="${ARGOCD_ENV_DT_ENV:-dev}"
+        case "$DT_ENV" in
+          dev)     URL="$DT_DEV_URL";     TOKEN="$DT_DEV_TOKEN" ;;
+          staging) URL="$DT_STAGING_URL"; TOKEN="$DT_STAGING_TOKEN" ;;
+          prod)    URL="$DT_PROD_URL";    TOKEN="$DT_PROD_TOKEN" ;;
+          *)
+            echo "ERROR: Unknown DT_ENV '$DT_ENV'. Must be dev | staging | prod." >&2
+            exit 1
+            ;;
+        esac
+
+        if [ -z "$TOKEN" ]; then
+          echo "ERROR: API token for environment '$DT_ENV' is empty." >&2
+          exit 1
+        fi
+
+        # Probe the DT API to validate token scopes
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: Api-Token $TOKEN" \
+          "${URL}/api/v2/settings/schemas?schemaIds=builtin:management-zones")
+
+        if [ "$HTTP_STATUS" != "200" ]; then
+          echo "ERROR: Dynatrace API probe returned HTTP $HTTP_STATUS." \
+               "Token may be missing required scopes (settings.read, settings.write, slo.read, slo.write, DataExport)." >&2
+          exit 1
+        fi
+
+        echo "Monaco CMP init: DT API reachable for environment '$DT_ENV' (HTTP 200)"
+
+  # generate: run Monaco and emit exactly one Kubernetes ConfigMap sentinel to stdout
+  generate:
+    command: [sh, -c]
+    args:
+      - |
+        set -e
+
+        DT_ENV="${ARGOCD_ENV_DT_ENV:-dev}"
+
+        # Run Monaco deploy in dry-run mode so Argo CD sees changes without applying them.
+        # The actual apply happens via the PostSync Job (sync-hook.yaml).
+        monaco deploy \
+          --manifest manifest.yaml \
+          --environment "$DT_ENV" \
+          --dry-run \
+          --verbose 2>&1 | tee /tmp/monaco-output.log
+
+        # Compute SHA256 of all YAML config files for drift detection.
+        MANIFEST_HASH=$(find . -name "*.yaml" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+
+        # Emit a ConfigMap sentinel — this is the only Kubernetes object Argo CD tracks.
+        # The oac/manifest-hash annotation is compared by the drift detector.
+        cat <<EOF
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: monaco-oac-state-${ARGOCD_APP_NAME}
+          namespace: sre-tools
+          labels:
+            app.kubernetes.io/part-of: dynatrace-oac
+            app.kubernetes.io/managed-by: argocd
+            argocd.argoproj.io/managed-by: argocd
+          annotations:
+            oac/manifest-hash: "${MANIFEST_HASH}"
+            oac/environment: "${DT_ENV}"
+            oac/app-name: "${ARGOCD_APP_NAME}"
+        data:
+          environment: "${DT_ENV}"
+          manifest-hash: "${MANIFEST_HASH}"
+        EOF

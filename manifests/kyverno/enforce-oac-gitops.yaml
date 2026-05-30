@@ -1,0 +1,67 @@
+# Kyverno ClusterPolicy: enforce-oac-origin
+# Ensures all OaC-related ConfigMaps and Secrets in sre-tools are:
+#   1. Managed by Argo CD (have the managed-by label)
+#   2. Only created with the oac/manifest-hash annotation (blocks manual kubectl apply)
+#
+# validationFailureAction: Enforce — hard block, not audit.
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-oac-origin
+  annotations:
+    policies.kyverno.io/title: Enforce OaC GitOps Origin
+    policies.kyverno.io/description: >
+      Blocks direct kubectl apply of OaC state ConfigMaps and requires
+      all OaC resources to carry the Argo CD managed-by label.
+      Only the Argo CD sync process (via the Monaco CMP) is authorised
+      to create or update these resources.
+spec:
+  validationFailureAction: Enforce
+  background: false   # only evaluate on admission, not background scan
+  rules:
+    # Rule 1: all OaC resources in sre-tools must be Argo CD managed
+    - name: require-argocd-managed
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+                - Secret
+              namespaces:
+                - sre-tools
+              selector:
+                matchLabels:
+                  app.kubernetes.io/part-of: dynatrace-oac
+      validate:
+        message: >
+          OaC resources (label app.kubernetes.io/part-of=dynatrace-oac) must
+          carry the label argocd.argoproj.io/managed-by. Apply changes via Git
+          and let Argo CD sync — do not use kubectl directly.
+        pattern:
+          metadata:
+            labels:
+              argocd.argoproj.io/managed-by: "?*"
+
+    # Rule 2: monaco-oac-state-* ConfigMaps must have the manifest-hash annotation.
+    # This annotation is only set by the CMP generate hook — blocking any
+    # ConfigMap created without going through the Argo CD sync process.
+    - name: block-oac-direct-apply
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+              namespaces:
+                - sre-tools
+              names:
+                - "monaco-oac-state-*"
+      validate:
+        message: >
+          ConfigMaps named monaco-oac-state-* must have the annotation
+          oac/manifest-hash set. This annotation is injected by the Argo CD
+          Monaco CMP generate hook. Do not create these ConfigMaps manually.
+        pattern:
+          metadata:
+            annotations:
+              oac/manifest-hash: "?*"

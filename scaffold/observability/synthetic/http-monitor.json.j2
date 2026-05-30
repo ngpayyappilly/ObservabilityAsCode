@@ -1,0 +1,65 @@
+{
+  "entityId": "{{ '{{' }} .ServiceName {{ '}}' }}-synthetic-health",
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} — Health Check",
+  "type": "HTTP",
+  "frequencyMin": {{ '{{' }} .SyntheticFreqMin {{ '}}' }},
+  "enabled": true,
+  "script": {
+    "version": "1.0",
+    "requests": [
+      {
+        "url": "{{ '{{' }} .SyntheticUrl {{ '}}' }}",
+        "method": "GET",
+        "description": "Health endpoint check",
+        "validation": {
+          "rules": [
+            {
+              "value": "2",
+              "passIfFound": true,
+              "type": "httpStatusesList"
+            }
+          ],
+          "rulesChaining": "OR"
+        },
+        "configuration": {
+          "acceptAnyCertificate": false,
+          "followRedirects": true,
+          "requestTimeout": 10000
+        }
+      }
+    ]
+  },
+  "locations": [
+    "SYNTHETIC_LOCATION-tkg-shared-01",
+    "SYNTHETIC_LOCATION-tkg-shared-02"
+  ],
+  "anomalyDetection": {
+    "outageHandling": {
+      "globalOutage": true,
+      "globalOutagePolicy": {
+        "consecutiveRuns": 2
+      },
+      "localOutagePolicy": {
+        "affectedLocations": 1,
+        "consecutiveRuns": 3
+      }
+    },
+    "loadingTimeThresholds": {
+      "enabled": true,
+      "thresholds": [
+        {
+          "type": "TOTAL",
+          "valueMs": 10000
+        }
+      ]
+    }
+  },
+  "tags": [
+    { "context": "CONTEXTLESS", "key": "oac" },
+    { "context": "CONTEXTLESS", "key": "{{ '{{' }} .ServiceName {{ '}}' }}" },
+    { "context": "CONTEXTLESS", "key": "{{ '{{' }} .ManagementZone {{ '}}' }}" }
+  ],
+  "managementZones": [
+    { "id": "{{ '{{' }} .ManagementZone {{ '}}' }}" }
+  ]
+}

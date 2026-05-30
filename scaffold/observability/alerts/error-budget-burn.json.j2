@@ -1,0 +1,55 @@
+{
+  "id": "{{ '{{' }} .ServiceName {{ '}}' }}-alert-burn-{{ '{{' }} .WindowLabel {{ '}}' }}",
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} — Error Budget Burn {{ '{{' }} .WindowLabel {{ '}}' }} ({{ '{{' }} .BurnRate {{ '}}' }}×)",
+  "description": "Error budget burning {{ '{{' }} .BurnRate {{ '}}' }}× faster than allowed over {{ '{{' }} .WindowLabel {{ '}}' }} window.",
+  "enabled": true,
+  "type": "STATIC_THRESHOLD",
+  "summary": "SLO burn rate alert: {{ '{{' }} .SloId {{ '}}' }} over {{ '{{' }} .WindowLabel {{ '}}' }}",
+  "queryDefinition": {
+    "type": "METRIC_KEY",
+    "metricKey": "ext:slo.errorBudgetBurnRate",
+    "aggregation": "AVG",
+    "entityFilter": {
+      "dimensionKey": "dt.entity.service",
+      "conditions": [
+        {
+          "type": "NAME",
+          "operator": "CONTAINS",
+          "value": "{{ '{{' }} .ServiceName {{ '}}' }}"
+        }
+      ]
+    },
+    "dimensionFilter": [
+      {
+        "key": "sloId",
+        "value": "{{ '{{' }} .SloId {{ '}}' }}"
+      }
+    ]
+  },
+  "modelProperties": {
+    "type": "STATIC_THRESHOLD",
+    "threshold": {{ '{{' }} .BurnRate {{ '}}' }},
+    "alertCondition": "ABOVE",
+    "violatingSamples": 1,
+    "samples": 3,
+    "dealertingSamples": 3
+  },
+  "eventTemplate": {
+    "title": "Error budget burning fast: {{ '{{' }} .ServiceName {{ '}}' }} ({{ '{{' }} .WindowLabel {{ '}}' }})",
+    "description": "The error budget for {{ '{{' }} .SloId {{ '}}' }} is being consumed at {{ '{{' }} .BurnRate {{ '}}' }}× the sustainable rate over the {{ '{{' }} .WindowLabel {{ '}}' }} window.",
+    "eventType": "{{ '{{' }} .Severity {{ '}}' }}",
+    "davisMerge": true,
+    "metadata": [
+      { "key": "sloId", "value": "{{ '{{' }} .SloId {{ '}}' }}" },
+      { "key": "burnWindow", "value": "{{ '{{' }} .WindowLabel {{ '}}' }}" }
+    ]
+  },
+  "alertingScope": [
+    {
+      "filterType": "MANAGEMENT_ZONE",
+      "managementZone": {
+        "id": "{{ '{{' }} .ManagementZone {{ '}}' }}"
+      }
+    }
+  ]
+}

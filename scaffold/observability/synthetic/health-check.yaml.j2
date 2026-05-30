@@ -1,0 +1,26 @@
+# HTTP synthetic monitor for the service /health endpoint.
+# Locations reference private ActiveGate nodes inside TKGs — required because
+# Istio STRICT mTLS blocks external DT SaaS synthetic locations from reaching
+# cluster-internal endpoints directly.
+
+configs:
+  - id: {{ service_name }}-synthetic-health
+    type:
+      api: synthetic-monitor
+    config:
+      name: "{{ service_name }} Health Check"
+      template: http-monitor.json.j2
+      parameters:
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+        SyntheticUrl:
+          type: environment
+          name: SyntheticUrl
+        SyntheticFreqMin:
+          type: environment
+          name: SyntheticFreqMin
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+      skip: false

@@ -1,0 +1,17 @@
+# Monaco environment variable file — prod
+# Targets reflect contractual SLAs. Changes here require PR approval + CI gate.
+# BurnRateFast/Slow implement Google SRE Workbook multi-window alerting.
+
+{{ service_name }}:
+  SLOTarget: "99.9"
+  SLOWarning: "99.5"
+  LatencyTarget: "300"
+  LatencyThresholdMs: "300"
+  ErrorRateThreshold: "0.5"
+  LatencyP99Ms: "300"
+  BurnRateFast: "14"             # 14× fast burn detected in 1h → page immediately
+  BurnRateSlow: "6"              # 6× slow burn detected in 6h → page (ticket-level)
+  ManagementZone: "env:prod"
+  AlertingProfileId: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+  SyntheticFreqMin: "1"
+  SyntheticUrl: "https://{{ service_name }}.prod.internal/health"

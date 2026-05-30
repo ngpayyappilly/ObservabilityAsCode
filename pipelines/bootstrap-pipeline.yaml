@@ -1,0 +1,66 @@
+# Bootstrap pipeline — scaffolds observability configs into all ADO repos.
+# Trigger: manual only (trigger: none).
+# Run with dryRun: true first to see which repos would be scaffolded.
+
+trigger: none
+
+parameters:
+  - name: dryRun
+    displayName: "Dry run (list repos, no writes)"
+    type: boolean
+    default: true
+
+  - name: repoFilter
+    displayName: "Repo name filter (regex, leave empty for all)"
+    type: string
+    default: ""
+
+variables:
+  - group: oac-bootstrap-secrets   # contains: ADO_PAT, PR_REVIEWER_EMAILS
+  - name: PYTHON_VERSION
+    value: "3.12"
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    displayName: "Checkout observability-template repo"
+
+  - task: UsePythonVersion@0
+    displayName: "Set up Python $(PYTHON_VERSION)"
+    inputs:
+      versionSpec: $(PYTHON_VERSION)
+      addToPath: true
+
+  - script: |
+      pip install --upgrade pip
+      pip install requests jinja2 pyyaml
+    displayName: "Install Python dependencies"
+
+  - script: |
+      DRY_RUN_FLAG=""
+      if [ "${{ parameters.dryRun }}" = "True" ]; then
+        DRY_RUN_FLAG="--dry-run"
+      fi
+
+      FILTER_FLAG=""
+      if [ -n "${{ parameters.repoFilter }}" ]; then
+        FILTER_FLAG="--repo-filter '${{ parameters.repoFilter }}'"
+      fi
+
+      python scripts/bootstrap.py $DRY_RUN_FLAG $FILTER_FLAG
+    displayName: "Run bootstrap"
+    env:
+      ADO_ORG_URL: $(System.CollectionUri)
+      ADO_PROJECT: $(System.TeamProject)
+      ADO_PAT: $(ADO_PAT)
+      PR_REVIEWER_EMAILS: $(PR_REVIEWER_EMAILS)
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publish bootstrap-results.json"
+    condition: always()
+    inputs:
+      pathToPublish: bootstrap-results.json
+      artifactName: bootstrap-results
+      publishLocation: Container

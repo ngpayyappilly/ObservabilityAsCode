@@ -1,0 +1,240 @@
+# OaC PR validation pipeline — runs inside each application repo on PRs to main.
+# Validate YAML, dry-run Monaco deploy, DDU estimate, SLO regression, secret scan.
+# This file is scaffolded into application repos by the bootstrap pipeline.
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - observability/**
+
+variables:
+  - group: dynatrace-staging-secrets   # contains: DT_STAGING_URL, DT_STAGING_TOKEN
+  - name: PYTHON_VERSION
+    value: "3.12"
+  - name: MONACO_VERSION
+    value: "v2.9.0"
+  - name: DDU_CAP_PER_APP
+    value: "5000"
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  # -----------------------------------------------------------------------
+  # Stage 1: path filter — skip everything if observability/ is unchanged
+  # -----------------------------------------------------------------------
+  - stage: path_filter
+    displayName: "Check if observability/ changed"
+    jobs:
+      - job: path_filter
+        displayName: "Path filter"
+        steps:
+          - checkout: self
+            fetchDepth: 0   # full history needed for git diff
+
+          - script: |
+              CHANGED=$(git diff --name-only origin/$(System.PullRequest.TargetBranch)...HEAD -- observability/)
+              if [ -z "$CHANGED" ]; then
+                echo "observability/ unchanged — skipping OaC validation"
+                echo "##vso[task.setvariable variable=oac_changed;isOutput=true]false"
+              else
+                echo "Changed files:"
+                echo "$CHANGED"
+                echo "##vso[task.setvariable variable=oac_changed;isOutput=true]true"
+              fi
+            name: detect_changes
+            displayName: "Detect OaC changes"
+
+  # -----------------------------------------------------------------------
+  # Stage 2: parallel validation jobs
+  # -----------------------------------------------------------------------
+  - stage: validate
+    displayName: "OaC Validation"
+    dependsOn: path_filter
+    condition: eq(dependencies.path_filter.outputs['path_filter.detect_changes.oac_changed'], 'true')
+    jobs:
+
+      # Job: YAML lint
+      - job: yaml_lint
+        displayName: "YAML lint"
+        steps:
+          - checkout: self
+
+          - script: pip install yamllint
+            displayName: "Install yamllint"
+
+          - script: |
+              cat > .yamllint.yaml << 'EOF'
+              extends: default
+              rules:
+                line-length:
+                  max: 200
+                truthy:
+                  allowed-values: ['true', 'false', 'yes', 'no']
+              EOF
+              yamllint -c .yamllint.yaml observability/
+            displayName: "Lint observability/ YAML files"
+
+      # Job: Monaco validate (static config validation, no API calls)
+      - job: monaco_validate
+        displayName: "Monaco validate"
+        steps:
+          - checkout: self
+
+          - script: |
+              DOWNLOAD_URL="https://github.com/Dynatrace/dynatrace-configuration-as-code/releases/download/$(MONACO_VERSION)/monaco-linux-amd64"
+              curl -sSL "$DOWNLOAD_URL" -o /usr/local/bin/monaco
+              chmod +x /usr/local/bin/monaco
+              monaco version
+            displayName: "Install Monaco CLI $(MONACO_VERSION)"
+
+          - script: |
+              monaco validate --manifest observability/manifest.yaml
+            displayName: "Validate Monaco manifest"
+
+      # Job: Monaco dry-run against staging
+      - job: monaco_dry_run
+        displayName: "Monaco dry-run (staging)"
+        steps:
+          - checkout: self
+
+          - script: |
+              curl -sSL "https://github.com/Dynatrace/dynatrace-configuration-as-code/releases/download/$(MONACO_VERSION)/monaco-linux-amd64" -o /usr/local/bin/monaco
+              chmod +x /usr/local/bin/monaco
+            displayName: "Install Monaco CLI"
+
+          - script: |
+              monaco deploy \
+                --manifest observability/manifest.yaml \
+                --environment staging \
+                --dry-run \
+                --verbose
+            displayName: "Monaco dry-run deploy to staging"
+            env:
+              DT_STAGING_URL: $(DT_STAGING_URL)
+              DT_STAGING_TOKEN: $(DT_STAGING_TOKEN)
+
+      # Job: DDU estimate
+      - job: ddu_estimate
+        displayName: "DDU estimate"
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - script: pip install pyyaml
+            displayName: "Install dependencies"
+
+          - script: |
+              python scripts/ddu-estimator.py \
+                --manifest observability/manifest.yaml \
+                --environment staging \
+                --cap $(DDU_CAP_PER_APP) \
+                --output-json /tmp/ddu-estimate.json
+            displayName: "Estimate DDU consumption"
+
+          - script: |
+              # Post DDU breakdown as a PR comment via ADO Threads REST API
+              PR_ID=$(System.PullRequest.PullRequestId)
+              ORG_URL=$(System.CollectionUri)
+              PROJECT=$(System.TeamProject)
+              REPO_ID=$(Build.Repository.ID)
+
+              DDU_TOTAL=$(python -c "import json; d=json.load(open('/tmp/ddu-estimate.json')); print(d['total_ddu'])")
+              CAP=$(DDU_CAP_PER_APP)
+
+              COMMENT="## DDU Estimate\n\nEstimated monthly DDU: **${DDU_TOTAL}** / cap: **${CAP}**\n\n\`\`\`json\n$(cat /tmp/ddu-estimate.json)\n\`\`\`"
+
+              curl -s -X POST \
+                -H "Authorization: Bearer $(System.AccessToken)" \
+                -H "Content-Type: application/json" \
+                "${ORG_URL}${PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/threads?api-version=7.1" \
+                -d "{\"comments\": [{\"parentCommentId\": 0, \"content\": \"$(echo $COMMENT | sed 's/"/\\"/g')\", \"commentType\": 1}], \"status\": 1}"
+            displayName: "Post DDU comment on PR"
+            condition: always()
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      # Job: SLO regression check
+      - job: slo_regression
+        displayName: "SLO regression check"
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - script: pip install pyyaml
+            displayName: "Install dependencies"
+
+          - script: |
+              python scripts/slo-regression-check.py \
+                --base-branch origin/$(System.PullRequest.TargetBranch) \
+                --changed-path observability/slos/ \
+                --threshold 0.1
+            displayName: "Check for SLO target regressions"
+
+      # Job: Secret scan — block if DT tokens or tenant URLs are detected
+      - job: secret_scan
+        displayName: "Secret scan"
+        steps:
+          - checkout: self
+
+          - script: |
+              echo "Scanning observability/ for hardcoded Dynatrace credentials..."
+
+              # Match DT API token patterns (dt0[A-Z]{1}[0-9A-Za-z]{4}\.)
+              if grep -rE 'dt0[a-zA-Z0-9]{4}\.' observability/ ; then
+                echo "##vso[task.logissue type=error]Dynatrace API token detected in observability/ — remove it immediately!"
+                exit 1
+              fi
+
+              # Match DT SaaS tenant URL patterns
+              if grep -rE '[a-z0-9]{8}\.live\.dynatrace\.com' observability/ ; then
+                echo "##vso[task.logissue type=error]Dynatrace tenant URL detected in observability/ — use environment variables instead!"
+                exit 1
+              fi
+
+              echo "Secret scan passed — no hardcoded credentials found."
+            displayName: "Scan for hardcoded DT credentials"
+
+  # -----------------------------------------------------------------------
+  # Stage 3: post summary PR comment (always runs, even on failure)
+  # -----------------------------------------------------------------------
+  - stage: post_summary
+    displayName: "Post PR summary"
+    dependsOn: validate
+    condition: always()
+    jobs:
+      - job: post_summary
+        displayName: "Post validation summary"
+        steps:
+          - checkout: none
+
+          - script: |
+              PR_ID=$(System.PullRequest.PullRequestId)
+              ORG_URL=$(System.CollectionUri)
+              PROJECT=$(System.TeamProject)
+              REPO_ID=$(Build.Repository.ID)
+
+              VALIDATE_RESULT=$([ "$(dependencies.validate.result)" = "Succeeded" ] && echo "✅ Passed" || echo "❌ Failed")
+
+              COMMENT="## OaC PR Validation Summary\n\n| Job | Status |\n|-----|--------|\n| YAML lint | see job |\n| Monaco validate | see job |\n| Monaco dry-run (staging) | see job |\n| DDU estimate | see job |\n| SLO regression | see job |\n| Secret scan | see job |\n\nValidation stage: **${VALIDATE_RESULT}**\n\nSee the [pipeline run](${ORG_URL}${PROJECT}/_build/results?buildId=$(Build.BuildId)) for details."
+
+              curl -s -X POST \
+                -H "Authorization: Bearer $(System.AccessToken)" \
+                -H "Content-Type: application/json" \
+                "${ORG_URL}${PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/threads?api-version=7.1" \
+                -d "{\"comments\": [{\"parentCommentId\": 0, \"content\": \"${COMMENT}\", \"commentType\": 1}], \"status\": 1}"
+            displayName: "Post summary comment"
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)

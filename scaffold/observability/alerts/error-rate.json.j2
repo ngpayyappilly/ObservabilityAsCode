@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "configurationVersions": [3],
+    "clusterVersion": "1.0.0"
+  },
+  "id": "{{ '{{' }} .ServiceName {{ '}}' }}-alert-error-rate",
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} — High Error Rate",
+  "description": "Error rate exceeded {{ '{{' }} .ErrorRateThreshold {{ '}}' }}% threshold",
+  "enabled": true,
+  "type": "STATIC_THRESHOLD",
+  "summary": "{{ '{{' }} .ServiceName {{ '}}' }} error rate > {{ '{{' }} .ErrorRateThreshold {{ '}}' }}%",
+  "queryDefinition": {
+    "type": "METRIC_KEY",
+    "metricKey": "builtin:service.errors.total.rate",
+    "aggregation": "AVG",
+    "entityFilter": {
+      "dimensionKey": "dt.entity.service",
+      "conditions": [
+        {
+          "type": "NAME",
+          "operator": "CONTAINS",
+          "value": "{{ '{{' }} .ServiceName {{ '}}' }}"
+        }
+      ]
+    },
+    "dimensionFilter": []
+  },
+  "modelProperties": {
+    "type": "STATIC_THRESHOLD",
+    "threshold": {{ '{{' }} .ErrorRateThreshold {{ '}}' }},
+    "alertCondition": "ABOVE",
+    "violatingSamples": 3,
+    "samples": 5,
+    "dealertingSamples": 5
+  },
+  "eventTemplate": {
+    "title": "High error rate on {{ '{{' }} .ServiceName {{ '}}' }}",
+    "description": "Error rate is {{ '{{' }} .ErrorRateThreshold {{ '}}' }}% — check recent deployments and downstream dependencies.",
+    "eventType": "ERROR_EVENT",
+    "davisMerge": true,
+    "metadata": []
+  },
+  "alertingScope": [
+    {
+      "filterType": "MANAGEMENT_ZONE",
+      "managementZone": {
+        "id": "{{ '{{' }} .ManagementZone {{ '}}' }}"
+      }
+    }
+  ]
+}

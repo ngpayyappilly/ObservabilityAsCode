@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-monaco-cmp-config
+  namespace: argocd
+data:
+  # The full plugin manifest is inlined here so it can be volume-mounted
+  # into the Monaco CMP sidecar at /home/argocd/cmp-server/config/plugin.yaml.
+  plugin.yaml: |
+    apiVersion: argoproj.io/v1alpha1
+    kind: ConfigManagementPlugin
+    metadata:
+      name: monaco
+    spec:
+      version: v1.0
+
+      discover:
+        find:
+          glob: "**/manifest.yaml"
+
+      init:
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            if [ -z "$DT_DEV_URL" ] && [ -z "$DT_STAGING_URL" ] && [ -z "$DT_PROD_URL" ]; then
+              echo "ERROR: No Dynatrace URL environment variable is set." >&2
+              exit 1
+            fi
+            DT_ENV="${ARGOCD_ENV_DT_ENV:-dev}"
+            case "$DT_ENV" in
+              dev)     URL="$DT_DEV_URL";     TOKEN="$DT_DEV_TOKEN" ;;
+              staging) URL="$DT_STAGING_URL"; TOKEN="$DT_STAGING_TOKEN" ;;
+              prod)    URL="$DT_PROD_URL";    TOKEN="$DT_PROD_TOKEN" ;;
+              *)
+                echo "ERROR: Unknown DT_ENV '$DT_ENV'. Must be dev | staging | prod." >&2
+                exit 1
+                ;;
+            esac
+            if [ -z "$TOKEN" ]; then
+              echo "ERROR: API token for environment '$DT_ENV' is empty." >&2
+              exit 1
+            fi
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Api-Token $TOKEN" \
+              "${URL}/api/v2/settings/schemas?schemaIds=builtin:management-zones")
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "ERROR: DT API probe returned HTTP $HTTP_STATUS. Check token scopes." >&2
+              exit 1
+            fi
+            echo "Monaco CMP init OK for env '$DT_ENV'"
+
+      generate:
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            DT_ENV="${ARGOCD_ENV_DT_ENV:-dev}"
+            monaco deploy \
+              --manifest manifest.yaml \
+              --environment "$DT_ENV" \
+              --dry-run \
+              --verbose 2>&1 | tee /tmp/monaco-output.log
+            MANIFEST_HASH=$(find . -name "*.yaml" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+            cat <<SENTINEL
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: monaco-oac-state-${ARGOCD_APP_NAME}
+              namespace: sre-tools
+              labels:
+                app.kubernetes.io/part-of: dynatrace-oac
+                app.kubernetes.io/managed-by: argocd
+                argocd.argoproj.io/managed-by: argocd
+              annotations:
+                oac/manifest-hash: "${MANIFEST_HASH}"
+                oac/environment: "${DT_ENV}"
+                oac/app-name: "${ARGOCD_APP_NAME}"
+            data:
+              environment: "${DT_ENV}"
+              manifest-hash: "${MANIFEST_HASH}"
+            SENTINEL

@@ -1,0 +1,25 @@
+# Error rate metric event alert.
+# Fires when the service error rate exceeds ErrorRateThreshold for 5 minutes.
+# Routing goes through AlertingProfileId (per-env: slack / pagerduty).
+
+configs:
+  - id: {{ service_name }}-alert-error-rate
+    type:
+      api: anomaly-detection-metrics
+    config:
+      name: "{{ service_name }} Error Rate Alert"
+      template: error-rate.json.j2
+      parameters:
+        ErrorRateThreshold:
+          type: environment
+          name: ErrorRateThreshold
+        AlertingProfileId:
+          type: environment
+          name: AlertingProfileId
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+      skip: false

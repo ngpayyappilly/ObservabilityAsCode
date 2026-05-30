@@ -1,0 +1,28 @@
+# Monaco config descriptor for the availability SLO.
+# type.api: slo  — uses Dynatrace SLO v2 API.
+# The SLO ID is stable: {{ service_name }}-slo-availability
+# Never rename this ID after initial scaffold — DT creates a new SLO on rename.
+
+configs:
+  - id: {{ service_name }}-slo-availability
+    type:
+      api: slo
+    config:
+      name: "{{ service_name }} Availability SLO"
+      template: availability-slo.json.j2
+      parameters:
+        # These Monaco parameter references are resolved at deploy time
+        # from the per-environment variable file.
+        SLOTarget:
+          type: environment
+          name: SLOTarget
+        SLOWarning:
+          type: environment
+          name: SLOWarning
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+      skip: false

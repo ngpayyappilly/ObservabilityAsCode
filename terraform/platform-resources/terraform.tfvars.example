@@ -1,0 +1,112 @@
+# Copy to terraform.tfvars and fill in real values.
+# NEVER commit terraform.tfvars — it contains credentials.
+# Prefer passing var.notifications via a secrets manager wrapper or
+# TF_VAR_notifications env var populated from Vault.
+
+dt_url       = "https://<tenant>.live.dynatrace.com"
+dt_api_token = "<token-with-settings.read-settings.write>"
+
+environments = {
+  dev = {
+    label              = "dev"
+    namespace_patterns = ["*-dev", "dev-*", "development"]
+    cluster_names      = []
+    description        = "Development environment"
+  }
+  staging = {
+    label              = "staging"
+    namespace_patterns = ["*-staging", "staging-*"]
+    cluster_names      = []
+    description        = "Staging / pre-production environment"
+  }
+  perf = {
+    label              = "perf"
+    namespace_patterns = ["*-perf", "perf-*", "*-performance"]
+    cluster_names      = []
+    description        = "Performance / load-test environment"
+  }
+  prod = {
+    label              = "prod"
+    namespace_patterns = ["*-prod", "prod-*", "production"]
+    cluster_names      = []
+    description        = "Production environment"
+  }
+}
+
+# ── Notifications ─────────────────────────────────────────────────────────
+# Set enabled = false for any channel you don't use — no resources are created.
+# Secrets should come from Vault; shown here in plaintext only as documentation.
+
+notifications = {
+  slack = {
+    enabled = true
+    channels = {
+      dev = {
+        webhook_url = "https://hooks.slack.com/services/REPLACE/DEV"
+        channel     = "#alerts-dev"
+      }
+      staging = {
+        webhook_url = "https://hooks.slack.com/services/REPLACE/STAGING"
+        channel     = "#alerts-staging"
+      }
+      perf = {
+        webhook_url = "https://hooks.slack.com/services/REPLACE/PERF"
+        channel     = "#alerts-perf"
+      }
+      prod = {
+        webhook_url = "https://hooks.slack.com/services/REPLACE/PROD"
+        channel     = "#alerts-prod"
+      }
+    }
+  }
+
+  msteams = {
+    enabled = true
+    channels = {
+      dev = {
+        webhook_url  = "https://YOUR_ORG.webhook.office.com/webhookb2/REPLACE/dev"
+        team_name    = "SRE"
+        channel_name = "Alerts - Dev"
+      }
+      staging = {
+        webhook_url  = "https://YOUR_ORG.webhook.office.com/webhookb2/REPLACE/staging"
+        team_name    = "SRE"
+        channel_name = "Alerts - Staging"
+      }
+      perf = {
+        webhook_url  = "https://YOUR_ORG.webhook.office.com/webhookb2/REPLACE/perf"
+        team_name    = "SRE"
+        channel_name = "Alerts - Perf"
+      }
+      prod = {
+        webhook_url  = "https://YOUR_ORG.webhook.office.com/webhookb2/REPLACE/prod"
+        team_name    = "SRE"
+        channel_name = "Alerts - Prod"
+      }
+    }
+  }
+
+  pagerduty = {
+    enabled = true
+    # Only prod is wired to PagerDuty — staging can be added if you want
+    # staging incidents to page on-call.
+    integrations = {
+      prod = {
+        account     = "YOUR_PD_SUBDOMAIN"       # e.g. "acme" for acme.pagerduty.com
+        service_key = "REPLACE_PD_SERVICE_KEY"  # Events API v2 integration key
+        routing_key = ""
+      }
+    }
+  }
+
+  splunk_oncall = {
+    enabled = true
+    # Splunk On-Call (VictorOps) — prod only
+    integrations = {
+      prod = {
+        routing_key = "REPLACE_VICTOROPS_ROUTING_KEY"
+        api_key     = "REPLACE_VICTOROPS_API_KEY"
+      }
+    }
+  }
+}

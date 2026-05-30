@@ -1,0 +1,37 @@
+# Reference snippet — add these labels to your Deployment/StatefulSet template.
+# These are the Kubernetes labels that Dynatrace OneAgent reads and that the
+# auto-tag rules (terraform/platform-resources/auto_tags.tf) translate into
+# Dynatrace tags, which the management zones then match on.
+#
+# Copy the `labels:` block into your actual Deployment manifest.
+
+# Example Deployment showing the required label set:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ service_name }}
+  namespace: {{ service_name }}-ENVIRONMENT   # e.g. payments-api-prod
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ service_name }}
+  template:
+    metadata:
+      labels:
+        # ── Standard Kubernetes recommended labels ──────────────────────
+        app.kubernetes.io/name: {{ service_name }}
+        app.kubernetes.io/instance: {{ service_name }}-ENVIRONMENT
+        app.kubernetes.io/component: backend          # frontend | backend | worker | data
+        app.kubernetes.io/part-of: REPLACE_SYSTEM     # Backstage System name
+        app.kubernetes.io/managed-by: argocd
+
+        # ── Backstage catalog identity ──────────────────────────────────
+        # Must match metadata.name in catalog-info.yaml
+        backstage.io/kubernetes-id: {{ service_name }}
+
+        # ── Environment and ownership ───────────────────────────────────
+        # These drive management zone membership in Dynatrace.
+        environment: REPLACE_ENV         # dev | staging | perf | prod
+        team: REPLACE_TEAM               # matches Backstage spec.owner (without 'team-' prefix)
+        domain: REPLACE_DOMAIN           # business domain, e.g. checkout, payments, identity
+        tier: backend                    # frontend | backend | data

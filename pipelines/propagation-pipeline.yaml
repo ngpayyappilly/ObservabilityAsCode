@@ -1,0 +1,52 @@
+# Propagation pipeline — pushes template updates to repos that already have OaC.
+# Triggers on any push to main that changes files under scaffold/observability/.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - scaffold/observability/**
+
+variables:
+  - group: oac-bootstrap-secrets   # contains: ADO_PAT, PR_REVIEWER_EMAILS
+  - name: PYTHON_VERSION
+    value: "3.12"
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    displayName: "Checkout with depth 2 for diff"
+    fetchDepth: 2
+
+  - task: UsePythonVersion@0
+    displayName: "Set up Python $(PYTHON_VERSION)"
+    inputs:
+      versionSpec: $(PYTHON_VERSION)
+      addToPath: true
+
+  - script: |
+      pip install --upgrade pip
+      pip install requests jinja2 pyyaml
+    displayName: "Install Python dependencies"
+
+  - script: |
+      # Compute the list of changed template files relative to repo root
+      git diff HEAD~1 HEAD --name-only -- scaffold/observability/ > /tmp/changed-templates.txt
+      echo "Changed templates:"
+      cat /tmp/changed-templates.txt
+    displayName: "Detect changed templates"
+
+  - script: |
+      python scripts/propagate.py \
+        --changed-templates /tmp/changed-templates.txt \
+        --branch "chore/update-oac-scaffold-$(Build.BuildId)"
+    displayName: "Propagate template changes"
+    env:
+      ADO_ORG_URL: $(System.CollectionUri)
+      ADO_PROJECT: $(System.TeamProject)
+      ADO_PAT: $(ADO_PAT)
+      PR_REVIEWER_EMAILS: $(PR_REVIEWER_EMAILS)

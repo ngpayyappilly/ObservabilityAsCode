@@ -1,0 +1,24 @@
+# Monaco config descriptor for the service overview dashboard.
+# Dashboard is created once per service; updates are idempotent by ID.
+
+configs:
+  - id: {{ service_name }}-dashboard-overview
+    type:
+      api: dashboard
+    config:
+      name: "{{ service_name }} Service Overview"
+      template: service-dashboard.json.j2
+      parameters:
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+        AvailabilitySloId:
+          type: value
+          value: "{{ service_name }}-slo-availability"
+        LatencySloId:
+          type: value
+          value: "{{ service_name }}-slo-latency-p99"
+      skip: false

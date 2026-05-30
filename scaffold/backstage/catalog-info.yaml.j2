@@ -1,0 +1,30 @@
+# Backstage catalog descriptor for {{ service_name }}.
+# Place this file at the repo root as catalog-info.yaml and register it in
+# your Backstage instance: https://backstage.YOUR_ORG/catalog-import
+#
+# The metadata here must be mirrored as Kubernetes labels on your Deployment
+# (see deployment-labels.yaml.j2) so Dynatrace auto-tag rules can read them.
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ service_name }}
+  description: "Service {{ service_name }}"
+  annotations:
+    # Connects Backstage to the Kubernetes workload — must match the
+    # app.kubernetes.io/name label on your Deployment.
+    backstage.io/kubernetes-id: {{ service_name }}
+
+    # ADO repo link
+    dev.azure.com/project-repo: YOUR_PROJECT/{{ service_name }}
+
+    # Dynatrace plugin annotation — links to the DT dashboard created by OaC.
+    # Update the entity ID after first OaC deploy.
+    dynatrace.com/dynatrace-entity-id: SERVICE-000000000000000
+
+spec:
+  type: service
+  lifecycle: production     # production | experimental | deprecated
+  owner: team-REPLACE_ME    # must match the 'team' k8s label on your Deployment
+  system: REPLACE_ME        # must match app.kubernetes.io/part-of label
+  domain: REPLACE_ME        # must match the 'domain' k8s label

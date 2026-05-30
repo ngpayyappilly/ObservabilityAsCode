@@ -1,0 +1,18 @@
+{
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} Availability",
+  "description": "Availability SLO for {{ '{{' }} .ServiceName {{ '}}' }}: successful requests / total requests.",
+  "metricExpression": "(100)*(ext:service.requestCount.successRate:filter(eq(dt.entity.service,entityId({{ '{{' }} .ManagementZone {{ '}}' }}))))",
+  "evaluationType": "AGGREGATE",
+  "filter": "type(\"SERVICE\"),mzName(\"{{ '{{' }} .ManagementZone {{ '}}' }}\")",
+  "target": {{ '{{' }} .SLOTarget {{ '}}' }},
+  "warning": {{ '{{' }} .SLOWarning {{ '}}' }},
+  "timeframe": "-1w",
+  "enabled": true,
+  "useRateMetric": false,
+  "metricNumerator": "ext:builtin:service.errors.total.successCount",
+  "metricDenominator": "ext:builtin:service.requestCount.total",
+  "errorBudgetBurnRate": {
+    "fastBurnThreshold": 14,
+    "burnRateVisualizationEnabled": true
+  }
+}

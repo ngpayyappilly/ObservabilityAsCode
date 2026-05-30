@@ -1,0 +1,89 @@
+# Kustomize strategic merge patch for argocd-repo-server.
+# Adds the Monaco CMP sidecar container and the volumes it needs.
+# Applied via kustomization.yaml in this directory.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      # Istio sidecar injection must remain enabled — no inject:false annotation.
+      # Monaco sidecar communicates with argocd-repo-server via Unix socket,
+      # not over the network, so mTLS is not a concern for that path.
+      containers:
+        - name: monaco-cmp
+          image: ghcr.io/dynatrace/dynatrace-configuration-as-code:v2.9.0
+          command: [/var/run/argocd/argocd-cmp-server]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            # All DT credentials come from ExternalSecrets-managed Secrets.
+            # Never hard-code values here.
+            - name: DT_DEV_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: dev-url
+            - name: DT_DEV_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: dev-token
+            - name: DT_STAGING_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: staging-url
+            - name: DT_STAGING_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: staging-token
+            - name: DT_PROD_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: prod-url
+            - name: DT_PROD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: prod-token
+          volumeMounts:
+            # Shared Unix socket for argocd-cmp-server IPC
+            - name: argocd-cmp-server-socket
+              mountPath: /var/run/argocd
+            # Monaco plugin config, mounted from the ConfigMap
+            - name: monaco-plugin-config
+              mountPath: /home/argocd/cmp-server/config/plugin.yaml
+              subPath: plugin.yaml
+            # Writable /tmp for Monaco temp files (readOnlyRootFilesystem is true)
+            - name: monaco-cmp-tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: argocd-cmp-server-socket
+          emptyDir: {}
+        - name: monaco-cmp-tmp
+          emptyDir: {}
+        - name: monaco-plugin-config
+          configMap:
+            name: argocd-monaco-cmp-config
+            items:
+              - key: plugin.yaml
+                path: plugin.yaml

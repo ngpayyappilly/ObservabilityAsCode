@@ -1,0 +1,47 @@
+{
+  "id": "{{ '{{' }} .ServiceName {{ '}}' }}-alert-latency-p99",
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} — High p99 Latency",
+  "description": "p99 response time exceeded {{ '{{' }} .LatencyP99Ms {{ '}}' }}ms",
+  "enabled": true,
+  "type": "STATIC_THRESHOLD",
+  "summary": "{{ '{{' }} .ServiceName {{ '}}' }} p99 latency > {{ '{{' }} .LatencyP99Ms {{ '}}' }}ms",
+  "queryDefinition": {
+    "type": "METRIC_KEY",
+    "metricKey": "builtin:service.response.time",
+    "aggregation": "PERCENTILE_99",
+    "entityFilter": {
+      "dimensionKey": "dt.entity.service",
+      "conditions": [
+        {
+          "type": "NAME",
+          "operator": "CONTAINS",
+          "value": "{{ '{{' }} .ServiceName {{ '}}' }}"
+        }
+      ]
+    },
+    "dimensionFilter": []
+  },
+  "modelProperties": {
+    "type": "STATIC_THRESHOLD",
+    "threshold": {{ '{{' }} .LatencyP99Ms {{ '}}' }}000,
+    "alertCondition": "ABOVE",
+    "violatingSamples": 3,
+    "samples": 5,
+    "dealertingSamples": 5
+  },
+  "eventTemplate": {
+    "title": "High p99 latency on {{ '{{' }} .ServiceName {{ '}}' }}",
+    "description": "p99 response time has exceeded {{ '{{' }} .LatencyP99Ms {{ '}}' }}ms SLA threshold.",
+    "eventType": "SLOWDOWN_EVENT",
+    "davisMerge": true,
+    "metadata": []
+  },
+  "alertingScope": [
+    {
+      "filterType": "MANAGEMENT_ZONE",
+      "managementZone": {
+        "id": "{{ '{{' }} .ManagementZone {{ '}}' }}"
+      }
+    }
+  ]
+}

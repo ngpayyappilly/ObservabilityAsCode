@@ -1,0 +1,38 @@
+# RBAC for the oac-drift-detector ServiceAccount.
+# Minimal permissions: read ConfigMaps in sre-tools to compare manifest hashes.
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oac-drift-detector
+  namespace: sre-tools
+  labels:
+    app.kubernetes.io/part-of: dynatrace-oac
+    app.kubernetes.io/component: drift-detector
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: oac-drift-detector
+  namespace: sre-tools
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: oac-drift-detector
+  namespace: sre-tools
+subjects:
+  - kind: ServiceAccount
+    name: oac-drift-detector
+    namespace: sre-tools
+roleRef:
+  kind: Role
+  name: oac-drift-detector
+  apiGroup: rbac.authorization.k8s.io

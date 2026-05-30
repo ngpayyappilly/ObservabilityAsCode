@@ -1,0 +1,17 @@
+{
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} Latency p99",
+  "description": "Latency SLO: p99 response time < {{ '{{' }} .LatencyThresholdMs {{ '}}' }}ms for {{ '{{' }} .ServiceName {{ '}}' }}.",
+  "evaluationType": "AGGREGATE",
+  "filter": "type(\"SERVICE\"),mzName(\"{{ '{{' }} .ManagementZone {{ '}}' }}\")",
+  "target": {{ '{{' }} .SLOTarget {{ '}}' }},
+  "warning": {{ '{{' }} .SLOWarning {{ '}}' }},
+  "timeframe": "-1w",
+  "enabled": true,
+  "useRateMetric": true,
+  "metricNumerator": "builtin:service.response.time:percentile(99):filter(lt(value,{{ '{{' }} .LatencyThresholdMs {{ '}}' }}000)):splitBy()",
+  "metricDenominator": "builtin:service.response.time:percentile(99):splitBy()",
+  "errorBudgetBurnRate": {
+    "fastBurnThreshold": 14,
+    "burnRateVisualizationEnabled": true
+  }
+}

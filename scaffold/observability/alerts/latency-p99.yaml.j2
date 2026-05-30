@@ -1,0 +1,24 @@
+# p99 latency metric event alert.
+# Fires when p99 response time exceeds LatencyP99Ms threshold.
+
+configs:
+  - id: {{ service_name }}-alert-latency-p99
+    type:
+      api: anomaly-detection-metrics
+    config:
+      name: "{{ service_name }} Latency p99 Alert"
+      template: latency-p99.json.j2
+      parameters:
+        LatencyP99Ms:
+          type: environment
+          name: LatencyP99Ms
+        AlertingProfileId:
+          type: environment
+          name: AlertingProfileId
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+      skip: false

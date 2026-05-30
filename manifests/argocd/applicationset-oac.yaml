@@ -1,0 +1,95 @@
+# ApplicationSet: per-app-observability
+# Creates one Argo CD Application per (repo × environment) combination.
+# Uses a matrix of scmProvider (ADO repos with observability/) × list (dev/staging/prod).
+# Prod sync is manual to prevent accidental SLO changes.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: per-app-observability
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          # Generator 1: discover all ADO repos that have observability/manifest.yaml
+          - scmProvider:
+              azureDevOps:
+                organization: YOUR_ORG
+                project: YOUR_PROJECT
+                accessTokenRef:
+                  secretName: ado-token
+                  secretKey: token
+              filters:
+                - pathsExist:
+                    - observability/manifest.yaml
+              cloneProtocol: https
+
+          # Generator 2: deploy to all three environments
+          - list:
+              elements:
+                - env: dev
+                  wave: "1"
+                  syncPolicy: automated
+                - env: staging
+                  wave: "2"
+                  syncPolicy: automated
+                - env: prod
+                  wave: "3"
+                  syncPolicy: manual
+
+  template:
+    metadata:
+      name: "oac-{{repository}}-{{env}}"
+      namespace: argocd
+      annotations:
+        # Sync wave ensures dev → staging → prod ordering within a sync operation
+        argocd.argoproj.io/sync-wave: "{{wave}}"
+      labels:
+        app.kubernetes.io/managed-by: argocd
+        oac/environment: "{{env}}"
+        oac/repository: "{{repository}}"
+
+    spec:
+      project: default
+
+      source:
+        repoURL: "{{url}}"
+        targetRevision: "{{branch}}"
+        path: observability
+        plugin:
+          name: monaco
+          env:
+            - name: ARGOCD_ENV_DT_ENV
+              value: "{{env}}"
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: sre-tools
+
+      syncPolicy:
+        # Prod applications override syncPolicy to manual below.
+        # For dev and staging: automated with selfHeal.
+        automated:
+          prune: false        # never auto-delete SLOs from Dynatrace
+          selfHeal: true      # re-sync if sentinel ConfigMap drifts
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+
+  # Per-environment sync policy overrides via templatePatch.
+  # Prod applications have no `automated` block — sync is always manual.
+  templatePatch: |
+    {{- if eq .env "prod" }}
+    spec:
+      syncPolicy:
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+    {{- end }}

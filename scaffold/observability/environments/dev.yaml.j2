@@ -1,0 +1,19 @@
+# Monaco environment variable file — dev
+# These values are injected into Monaco config JSON via {{ '{{' }} .Param {{ '}}' }} references.
+# Targets are intentionally relaxed in dev to avoid alert fatigue during development.
+
+{{ service_name }}:
+  SLOTarget: "99.0"
+  SLOWarning: "98.5"
+  LatencyTarget: "500"           # ms — p99 threshold for latency SLO
+  LatencyThresholdMs: "500"
+  ErrorRateThreshold: "2.0"      # percent — metric event alert threshold
+  LatencyP99Ms: "500"
+  BurnRateFast: "10"             # error budget burn rate: fast window (1h)
+  BurnRateSlow: "5"              # error budget burn rate: slow window (6h)
+  ManagementZone: "env:dev"
+  # Value populated from Terraform output: alerting_profile_ids.dev
+  # Run: terraform output -json alerting_profile_ids | jq -r '.dev'
+  AlertingProfileId: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_dev"
+  SyntheticFreqMin: "5"          # synthetic check frequency in minutes
+  SyntheticUrl: "https://{{ service_name }}.dev.internal/health"

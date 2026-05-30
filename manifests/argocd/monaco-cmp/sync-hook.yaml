@@ -1,0 +1,92 @@
+# PostSync Job — actually applies Monaco configs to Dynatrace after Argo CD syncs.
+# The CMP generate hook runs --dry-run; this Job does the real deploy.
+# hook-delete-policy: BeforeHookCreation ensures a clean Job on every sync.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monaco-deploy-${ARGOCD_APP_NAME}-${ARGOCD_ENV_DT_ENV}
+  namespace: sre-tools
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/part-of: dynatrace-oac
+    app.kubernetes.io/managed-by: argocd
+spec:
+  ttlSecondsAfterFinished: 3600   # clean up completed Jobs after 1h
+  backoffLimit: 2                  # retry up to 2 times on transient DT API errors
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: dynatrace-oac
+        # Istio sidecar injection stays enabled — no inject:false here
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: oac-drift-detector   # reuse the same SA
+      containers:
+        - name: monaco-deploy
+          image: ghcr.io/dynatrace/dynatrace-configuration-as-code:v2.9.0
+          command: [sh, -c]
+          args:
+            - |
+              set -e
+              monaco deploy \
+                --manifest /workspace/manifest.yaml \
+                --environment "${DT_ENV}" \
+                --verbose
+          env:
+            - name: DT_ENV
+              value: "${ARGOCD_ENV_DT_ENV}"
+            - name: DT_DEV_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: dev-url
+            - name: DT_DEV_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: dev-token
+            - name: DT_STAGING_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: staging-url
+            - name: DT_STAGING_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: staging-token
+            - name: DT_PROD_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-tenant-urls
+                  key: prod-url
+            - name: DT_PROD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-api-tokens
+                  key: prod-token
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # Monaco needs to write temp files
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          # The observability/ folder is projected via Argo CD's repo-server;
+          # in practice this Job is patched per-app by the ApplicationSet.
+          emptyDir: {}

@@ -1,0 +1,28 @@
+# Monaco config descriptor for the p99 latency SLO.
+# Latency SLOs use a threshold-based definition: p99 response time < threshold.
+# Alert IDs referencing this SLO must match: {{ service_name }}-slo-latency-p99
+
+configs:
+  - id: {{ service_name }}-slo-latency-p99
+    type:
+      api: slo
+    config:
+      name: "{{ service_name }} Latency p99 SLO"
+      template: latency-slo.json.j2
+      parameters:
+        SLOTarget:
+          type: environment
+          name: SLOTarget
+        SLOWarning:
+          type: environment
+          name: SLOWarning
+        LatencyThresholdMs:
+          type: environment
+          name: LatencyThresholdMs
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+      skip: false

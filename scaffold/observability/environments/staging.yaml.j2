@@ -1,0 +1,16 @@
+# Monaco environment variable file — staging
+# Tighter targets than dev; used for pre-production validation.
+
+{{ service_name }}:
+  SLOTarget: "99.5"
+  SLOWarning: "99.0"
+  LatencyTarget: "400"
+  LatencyThresholdMs: "400"
+  ErrorRateThreshold: "1.0"
+  LatencyP99Ms: "400"
+  BurnRateFast: "12"
+  BurnRateSlow: "5"
+  ManagementZone: "env:staging"
+  AlertingProfileId: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_staging"
+  SyntheticFreqMin: "3"
+  SyntheticUrl: "https://{{ service_name }}.staging.internal/health"

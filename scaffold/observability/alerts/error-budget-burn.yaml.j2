@@ -1,0 +1,75 @@
+# Multi-window error budget burn rate alerts.
+# Implements Google SRE Workbook dual-window AND-gate pattern:
+#   - Fast burn: 14× rate in 1h window  → immediate page (P1)
+#   - Slow burn: 6× rate in 6h window   → ticket-level alert (P2)
+# Both windows must fire independently (separate configs).
+# Combined in the alerting profile as an AND condition.
+
+configs:
+  # Fast burn window — 1 hour, 14× consumption rate
+  - id: {{ service_name }}-alert-burn-fast
+    type:
+      api: anomaly-detection-metrics
+    config:
+      name: "{{ service_name }} Error Budget Fast Burn"
+      template: error-budget-burn.json.j2
+      parameters:
+        BurnRate:
+          type: environment
+          name: BurnRateFast
+        WindowMinutes:
+          type: value
+          value: "60"
+        WindowLabel:
+          type: value
+          value: "1h"
+        Severity:
+          type: value
+          value: "CRITICAL"
+        AlertingProfileId:
+          type: environment
+          name: AlertingProfileId
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+        SloId:
+          type: value
+          value: "{{ service_name }}-slo-availability"
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+      skip: false
+
+  # Slow burn window — 6 hours, 6× consumption rate
+  - id: {{ service_name }}-alert-burn-slow
+    type:
+      api: anomaly-detection-metrics
+    config:
+      name: "{{ service_name }} Error Budget Slow Burn"
+      template: error-budget-burn.json.j2
+      parameters:
+        BurnRate:
+          type: environment
+          name: BurnRateSlow
+        WindowMinutes:
+          type: value
+          value: "360"
+        WindowLabel:
+          type: value
+          value: "6h"
+        Severity:
+          type: value
+          value: "ERROR_EVENT"
+        AlertingProfileId:
+          type: environment
+          name: AlertingProfileId
+        ManagementZone:
+          type: environment
+          name: ManagementZone
+        SloId:
+          type: value
+          value: "{{ service_name }}-slo-availability"
+        ServiceName:
+          type: value
+          value: "{{ service_name }}"
+      skip: false

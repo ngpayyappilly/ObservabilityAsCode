@@ -1,0 +1,93 @@
+{
+  "metadata": {
+    "configurationVersions": [6],
+    "clusterVersion": "1.0.0"
+  },
+  "id": "{{ '{{' }} .ServiceName {{ '}}' }}-dashboard-overview",
+  "dashboardMetadata": {
+    "name": "{{ '{{' }} .ServiceName {{ '}}' }} — Service Overview",
+    "shared": false,
+    "owner": "sre-team",
+    "tags": ["oac", "{{ '{{' }} .ServiceName {{ '}}' }}", "{{ '{{' }} .ManagementZone {{ '}}' }}"],
+    "preset": false,
+    "popularity": 1
+  },
+  "tiles": [
+    {
+      "name": "Availability SLO",
+      "tileType": "SLO",
+      "configured": true,
+      "bounds": { "top": 0, "left": 0, "width": 304, "height": 304 },
+      "assignedEntities": [],
+      "metric": "FUNC:slo.availability",
+      "customName": "Availability",
+      "customDescription": "Successful requests / total requests — target: see environment config",
+      "excludeMaintenanceWindows": true,
+      "sloId": "{{ '{{' }} .AvailabilitySloId {{ '}}' }}"
+    },
+    {
+      "name": "Latency p99 SLO",
+      "tileType": "SLO",
+      "configured": true,
+      "bounds": { "top": 0, "left": 304, "width": 304, "height": 304 },
+      "assignedEntities": [],
+      "metric": "FUNC:slo.target",
+      "customName": "Latency p99",
+      "customDescription": "p99 response time SLO",
+      "excludeMaintenanceWindows": true,
+      "sloId": "{{ '{{' }} .LatencySloId {{ '}}' }}"
+    },
+    {
+      "name": "Request Rate",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 304, "left": 0, "width": 608, "height": 304 },
+      "customName": "Request Rate (req/min)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "AUTO",
+          "timeAggregation": "DEFAULT",
+          "metricSelector": "builtin:service.requestCount.total:splitBy(dt.entity.service):avg:auto:sort(value(avg,descending)):limit(10):filter(mzName(\"{{ '{{' }} .ManagementZone {{ '}}' }}\"))",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH_CHART",
+        "global": { "hideLegend": false }
+      }
+    },
+    {
+      "name": "Error Rate",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 304, "left": 608, "width": 608, "height": 304 },
+      "customName": "Error Rate (%)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "AUTO",
+          "timeAggregation": "DEFAULT",
+          "metricSelector": "builtin:service.errors.total.rate:splitBy(dt.entity.service):avg:auto:sort(value(avg,descending)):limit(10):filter(mzName(\"{{ '{{' }} .ManagementZone {{ '}}' }}\"))",
+          "enabled": true,
+          "visualization": {
+            "thresholds": [
+              {
+                "axisTarget": "LEFT",
+                "rules": [
+                  { "color": "#7dc540", "condition": "ABOVE", "value": 0 },
+                  { "color": "#f5d30f", "condition": "ABOVE", "value": 0.5 },
+                  { "color": "#dc172a", "condition": "ABOVE", "value": 1.0 }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH_CHART",
+        "global": { "hideLegend": false }
+      }
+    }
+  ]
+}

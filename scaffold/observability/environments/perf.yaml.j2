@@ -1,0 +1,18 @@
+# Monaco environment variable file — perf
+# Performance / load-test environment.
+# Error rate threshold is intentionally higher — load tests generate synthetic errors.
+# Latency targets are relaxed vs prod — p99 under load is expected to be higher.
+
+{{ service_name }}:
+  SLOTarget: "99.0"
+  SLOWarning: "98.5"
+  LatencyTarget: "800"
+  LatencyThresholdMs: "800"
+  ErrorRateThreshold: "5.0"       # higher than prod — load tests generate noise
+  LatencyP99Ms: "800"
+  BurnRateFast: "10"
+  BurnRateSlow: "5"
+  ManagementZone: "env:perf"
+  AlertingProfileId: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_perf"
+  SyntheticFreqMin: "5"
+  SyntheticUrl: "https://{{ service_name }}.perf.internal/health"
