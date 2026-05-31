@@ -1,0 +1,67 @@
+# critical-endpoints.yaml — define which endpoints get individual SLOs.
+#
+# This file is the ONLY file teams need to edit to add per-endpoint SLOs.
+# After editing, run the endpoint SLO generator:
+#
+#   python scripts/generate-endpoint-slos.py \
+#     --endpoints observability/slos/endpoints/critical-endpoints.yaml \
+#     --service {{ service_name }}
+#
+# The generator creates one availability SLO + one latency SLO per entry
+# and writes them to observability/slos/endpoints/generated/.
+# Commit generated/ — Argo CD picks it up automatically.
+#
+# ── How endpoints are identified in Dynatrace ─────────────────────────────
+#
+# Dynatrace models HTTP endpoints as SERVICE_METHOD entities when they are
+# either automatically detected OR marked as "key requests". The entity
+# name matches the pattern: "<HTTP_METHOD> <path>", e.g. "POST /payments".
+#
+# For the entity selector to work, the endpoint MUST appear in the DT
+# service's top requests list. For low-traffic endpoints, mark them as
+# key requests in the DT UI or via the key_requests Monaco config.
+#
+# ── Fields ────────────────────────────────────────────────────────────────
+#
+#   id          Unique slug — used in the Monaco config ID and SLO name.
+#               Must be lowercase alphanumeric + hyphens. Never change after
+#               first deploy (renaming creates duplicate SLOs in Dynatrace).
+#   method      HTTP method: GET | POST | PUT | PATCH | DELETE
+#   path        URL path as it appears in Dynatrace (no query string).
+#               Check DT service → Top web requests for the exact string.
+#   description Human-readable description for the SLO name in DT.
+#   latency_ms  p99 latency threshold in milliseconds.
+#               Overrides the service-level LatencyThresholdMs for this endpoint.
+#   slo_target  Availability target (%). Defaults to the service-level SLOTarget
+#               if omitted. Set lower for internal/non-critical paths.
+#   slo_warning Warning threshold (%). Must be lower than slo_target.
+
+service: {{ service_name }}
+
+endpoints:
+  # ── Example entries — replace with your actual critical endpoints ──────
+  # Delete or comment out any endpoint you don't need a dedicated SLO for.
+
+  - id: get-health
+    method: GET
+    path: /health
+    description: "Health check endpoint"
+    latency_ms: 100         # health should be fast
+    slo_target: 99.9
+    slo_warning: 99.5
+
+  - id: get-root
+    method: GET
+    path: /
+    description: "Root / index endpoint"
+    latency_ms: 300
+    # slo_target omitted — inherits service-level target from Monaco env file
+
+  # Add your critical business endpoints below:
+  # - id: post-create-order
+  #   method: POST
+  #   path: /api/v1/orders
+  #   description: "Create order"
+  #   latency_ms: 500
+  #   slo_target: 99.9
+  #   slo_warning: 99.5

@@ -1,0 +1,17 @@
+{
+  "name": "{{ '{{' }} .ServiceName {{ '}}' }} {{ '{{' }} .HttpMethod {{ '}}' }} {{ '{{' }} .EndpointPath {{ '}}' }} Availability",
+  "description": "Availability SLO for {{ '{{' }} .ServiceName {{ '}}' }} {{ '{{' }} .EndpointDescription {{ '}}' }} — successful requests / total requests on this specific endpoint.",
+  "evaluationType": "AGGREGATE",
+  "filter": "type(\"SERVICE_METHOD\"),entityName(\"{{ '{{' }} .HttpMethod {{ '}}' }} {{ '{{' }} .EndpointPath {{ '}}' }}\"),fromRelationships.runsOn(type(\"SERVICE\"),mzName(\"{{ '{{' }} .ManagementZone {{ '}}' }}\"))",
+  "target": {{ '{{' }} .SLOTarget {{ '}}' }},
+  "warning": {{ '{{' }} .SLOWarning {{ '}}' }},
+  "timeframe": "-1w",
+  "enabled": true,
+  "useRateMetric": true,
+  "metricNumerator": "builtin:service.keyRequest.count.success",
+  "metricDenominator": "builtin:service.keyRequest.count.total",
+  "errorBudgetBurnRate": {
+    "fastBurnThreshold": 14,
+    "burnRateVisualizationEnabled": true
+  }
+}

@@ -183,6 +183,42 @@ stages:
                 --threshold 0.1
             displayName: "Check for SLO target regressions"
 
+      # Job: Endpoint SLO generator — verify generated/ is up to date with critical-endpoints.yaml
+      - job: endpoint_slo_sync
+        displayName: "Endpoint SLO generated files in sync"
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - script: pip install pyyaml
+            displayName: "Install dependencies"
+
+          - script: |
+              # Re-generate endpoint SLOs from critical-endpoints.yaml
+              python scripts/generate-endpoint-slos.py \
+                --endpoints observability/slos/endpoints/critical-endpoints.yaml \
+                --env-file observability/environments/prod.yaml \
+                --output-dir /tmp/endpoint-slos-generated
+
+              # Diff generated output vs what's committed
+              DIFF=$(diff -rq \
+                observability/slos/endpoints/generated/ \
+                /tmp/endpoint-slos-generated/ \
+                --exclude=".gitkeep" 2>&1 || true)
+
+              if [ -n "$DIFF" ]; then
+                echo "##vso[task.logissue type=error]Generated endpoint SLO files are out of sync with critical-endpoints.yaml."
+                echo "Run 'python scripts/generate-endpoint-slos.py' and commit the generated/ directory."
+                echo "$DIFF"
+                exit 1
+              fi
+
+              echo "Endpoint SLO generated files are up to date."
+            displayName: "Check generated endpoint SLOs are current"
+
       # Job: Secret scan — block if DT tokens or tenant URLs are detected
       - job: secret_scan
         displayName: "Secret scan"
