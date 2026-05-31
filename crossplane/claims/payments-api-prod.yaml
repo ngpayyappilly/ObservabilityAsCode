@@ -1,0 +1,58 @@
+# ServiceObservabilityClaim — what an app team writes in their repo.
+# One file per environment. Argo CD syncs it; Crossplane does the rest.
+#
+# Compare this to the Monaco approach:
+#   Monaco: ~15 files (manifest + env files + SLO YAMLs + JSON templates + alerts + dashboard)
+#   Crossplane: this single file per environment.
+#
+# The Composition creates all the same DT resources automatically.
+
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: ServiceObservabilityClaim
+metadata:
+  name: payments-api-prod
+  namespace: payments-api          # team's own namespace
+  labels:
+    app.kubernetes.io/name: payments-api
+    environment: prod
+    team: platform
+spec:
+  serviceName: payments-api
+  environment: prod
+  team: platform
+
+  slo:
+    availabilityTarget: 99.9
+    availabilityWarning: 99.5
+    latencyTargetMs: 300           # p99 < 300ms
+    latencyTarget: 99.9
+    latencyWarning: 99.5
+
+  alerts:
+    errorRateThreshold: 0.5        # alert if error rate > 0.5%
+    burnRateFast: 14               # Google SRE Workbook: 14× in 1h
+    burnRateSlow: 6                # 6× in 6h
+    alertingProfileId: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+
+  synthetic:
+    enabled: true
+    url: "https://payments-api.prod.internal/health"
+    frequencyMinutes: 1
+
+  # Per-endpoint SLOs — Composition creates one availability + one latency SLO each
+  endpoints:
+    - id: post-payments
+      method: POST
+      path: /api/v1/payments
+      latencyMs: 400
+      sloTarget: 99.9
+    - id: get-payment-status
+      method: GET
+      path: /api/v1/payments/{id}/status
+      latencyMs: 200
+      sloTarget: 99.95
+    - id: get-health
+      method: GET
+      path: /health
+      latencyMs: 100
+      sloTarget: 99.9

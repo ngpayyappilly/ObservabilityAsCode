@@ -1,0 +1,166 @@
+# XRD: ServiceObservability
+# The high-level API that app teams use. One claim creates:
+#   - Availability SLO
+#   - Latency p99 SLO
+#   - Error rate alert
+#   - Latency alert
+#   - Error budget burn rate alerts (fast + slow)
+#   - Service overview dashboard
+#   - HTTP synthetic health check
+#
+# Teams never touch raw Dynatrace CRDs — they write a ServiceObservabilityClaim
+# and the Composition wires it all together.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xserviceobservabilities.oac.YOUR_ORG.io
+spec:
+  group: oac.YOUR_ORG.io
+
+  names:
+    kind: XServiceObservability
+    plural: xserviceobservabilities
+
+  # Namespaced claim that app teams create in their own namespace
+  claimNames:
+    kind: ServiceObservabilityClaim
+    plural: serviceobservabilityclaims
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [serviceName, environment, team]
+              properties:
+
+                serviceName:
+                  type: string
+                  description: "Service name — must match Backstage catalog metadata.name"
+                  pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+
+                environment:
+                  type: string
+                  enum: [dev, staging, perf, prod]
+                  description: "Target Dynatrace environment"
+
+                team:
+                  type: string
+                  description: "Owning team — must match the 'team' k8s label"
+
+                managementZone:
+                  type: string
+                  description: "Dynatrace management zone name (e.g. env:prod)"
+                  default: ""   # computed from environment if empty
+
+                slo:
+                  type: object
+                  description: "SLO targets — override per-environment defaults"
+                  properties:
+                    availabilityTarget:
+                      type: number
+                      minimum: 0
+                      maximum: 100
+                      description: "Availability SLO target (%)"
+                    availabilityWarning:
+                      type: number
+                      description: "Availability SLO warning threshold (%)"
+                    latencyTargetMs:
+                      type: integer
+                      description: "p99 latency SLO threshold in milliseconds"
+                    latencyTarget:
+                      type: number
+                      description: "Latency SLO target (%)"
+                    latencyWarning:
+                      type: number
+                      description: "Latency SLO warning threshold (%)"
+
+                alerts:
+                  type: object
+                  description: "Alert thresholds"
+                  properties:
+                    errorRateThreshold:
+                      type: number
+                      description: "Error rate alert threshold (%)"
+                    burnRateFast:
+                      type: number
+                      description: "Fast burn rate multiplier (1h window)"
+                      default: 14
+                    burnRateSlow:
+                      type: number
+                      description: "Slow burn rate multiplier (6h window)"
+                      default: 6
+                    alertingProfileId:
+                      type: string
+                      description: "Dynatrace alerting profile ID from Terraform output"
+
+                synthetic:
+                  type: object
+                  description: "Synthetic HTTP health check config"
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: true
+                    url:
+                      type: string
+                      description: "Health check URL"
+                    frequencyMinutes:
+                      type: integer
+                      minimum: 1
+                      maximum: 60
+                      default: 5
+
+                endpoints:
+                  type: array
+                  description: "Critical endpoints for per-endpoint SLOs"
+                  items:
+                    type: object
+                    required: [id, method, path]
+                    properties:
+                      id:
+                        type: string
+                        pattern: '^[a-z0-9-]+$'
+                      method:
+                        type: string
+                        enum: [GET, POST, PUT, PATCH, DELETE]
+                      path:
+                        type: string
+                      latencyMs:
+                        type: integer
+                      sloTarget:
+                        type: number
+
+            status:
+              type: object
+              properties:
+                availabilitySloId:
+                  type: string
+                  description: "Dynatrace SLO ID for availability (set after creation)"
+                latencySloId:
+                  type: string
+                  description: "Dynatrace SLO ID for latency p99"
+                dashboardId:
+                  type: string
+                  description: "Dynatrace dashboard ID"
+                syntheticMonitorId:
+                  type: string
+                  description: "Dynatrace synthetic monitor ID"
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string

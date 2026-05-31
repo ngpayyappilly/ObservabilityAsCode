@@ -1,0 +1,389 @@
+# Composition: ServiceObservability
+# Wires the XRD claim to actual Dynatrace resources via the native provider CRDs.
+# Each resource below is managed by the Crossplane provider-dynatrace controller,
+# which continuously reconciles against the Dynatrace REST API.
+#
+# Assumes provider-dynatrace is installed (see crossplane/provider/PROVIDER_BUILD.md).
+# For provider-terraform bridge, use the Workspace approach instead.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: service-observability
+  labels:
+    crossplane.io/xrd: xserviceobservabilities.oac.YOUR_ORG.io
+spec:
+  compositeTypeRef:
+    apiVersion: oac.YOUR_ORG.io/v1alpha1
+    kind: XServiceObservability
+
+  # Patch strategy: merge claim spec fields into composed resource specs
+  patchSets:
+    - name: common-metadata
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.serviceName
+          toFieldPath: metadata.labels["oac/service"]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels["oac/environment"]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.team
+          toFieldPath: metadata.labels["oac/team"]
+
+  resources:
+
+    # ── 1. Availability SLO ────────────────────────────────────────────────
+    - name: availability-slo
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: SloV2
+        spec:
+          forProvider:
+            enabled: true
+            evaluationType: AGGREGATE
+            evaluationWindow: "-1w"
+            useRateMetric: true
+            metricNumerator: "builtin:service.errors.total.successCount"
+            metricDenominator: "builtin:service.requestCount.total"
+            errorBudgetBurnRate:
+              burnRateVisualizationEnabled: true
+              fastBurnThreshold: 14
+          providerConfigRef:
+            name: dynatrace-provider-config   # env-specific, set by patch below
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        # SLO name from service + environment
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s Availability SLO (%s)"
+          toFieldPath: spec.forProvider.name
+
+        # Entity filter scoped to management zone
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "type(\"SERVICE\"),mzName(\"env:%s\")"
+          toFieldPath: spec.forProvider.filter
+
+        # SLO target from claim spec (with default)
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.slo.availabilityTarget
+          toFieldPath: spec.forProvider.targetSuccess
+          transforms:
+            - type: convert
+              convert:
+                toType: float64
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.slo.availabilityWarning
+          toFieldPath: spec.forProvider.targetWarning
+          transforms:
+            - type: convert
+              convert:
+                toType: float64
+
+        # Route to the correct DT tenant based on environment
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev:     dynatrace-dev
+                staging: dynatrace-staging
+                perf:    dynatrace-perf
+                prod:    dynatrace-prod
+
+        # Write the SLO ID back to the composite status
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.availabilitySloId
+
+    # ── 2. Latency p99 SLO ────────────────────────────────────────────────
+    - name: latency-slo
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: SloV2
+        spec:
+          forProvider:
+            enabled: true
+            evaluationType: AGGREGATE
+            evaluationWindow: "-1w"
+            useRateMetric: true
+            errorBudgetBurnRate:
+              burnRateVisualizationEnabled: true
+              fastBurnThreshold: 14
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s Latency p99 SLO (%s)"
+          toFieldPath: spec.forProvider.name
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "type(\"SERVICE\"),mzName(\"env:%s\")"
+          toFieldPath: spec.forProvider.filter
+
+        # Build metricNumerator with the latency threshold from claim
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.slo.latencyTargetMs
+            strategy: string
+            string:
+              fmt: "builtin:service.response.time:percentile(99):filter(lt(value,%d000)):splitBy()"
+          toFieldPath: spec.forProvider.metricNumerator
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.slo.latencyTarget
+          toFieldPath: spec.forProvider.targetSuccess
+          transforms:
+            - type: convert
+              convert:
+                toType: float64
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.slo.latencyWarning
+          toFieldPath: spec.forProvider.targetWarning
+          transforms:
+            - type: convert
+              convert:
+                toType: float64
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev: dynatrace-dev
+                staging: dynatrace-staging
+                perf: dynatrace-perf
+                prod: dynatrace-prod
+
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.latencySloId
+
+    # ── 3. Error rate alert ────────────────────────────────────────────────
+    - name: error-rate-alert
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: MetricEvents
+        spec:
+          forProvider:
+            enabled: true
+            type: STATIC_THRESHOLD
+            modelProperties:
+              alertCondition: ABOVE
+              violatingSamples: 3
+              samples: 5
+              dealertingSamples: 5
+            queryDefinition:
+              type: METRIC_KEY
+              metricKey: "builtin:service.errors.total.rate"
+              aggregation: AVG
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s — High Error Rate (%s)"
+          toFieldPath: spec.forProvider.name
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.alerts.errorRateThreshold
+          toFieldPath: spec.forProvider.modelProperties.threshold
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.alerts.alertingProfileId
+          toFieldPath: spec.forProvider.alertingProfile
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev: dynatrace-dev
+                staging: dynatrace-staging
+                perf: dynatrace-perf
+                prod: dynatrace-prod
+
+    # ── 4. Error budget fast burn alert ────────────────────────────────────
+    - name: burn-alert-fast
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: MetricEvents
+        spec:
+          forProvider:
+            enabled: true
+            type: STATIC_THRESHOLD
+            queryDefinition:
+              type: METRIC_KEY
+              metricKey: "ext:slo.errorBudgetBurnRate"
+              aggregation: AVG
+            modelProperties:
+              alertCondition: ABOVE
+              violatingSamples: 1
+              samples: 3
+              dealertingSamples: 3
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s — Error Budget Fast Burn 1h (%s)"
+          toFieldPath: spec.forProvider.name
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.alerts.burnRateFast
+          toFieldPath: spec.forProvider.modelProperties.threshold
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev: dynatrace-dev
+                staging: dynatrace-staging
+                perf: dynatrace-perf
+                prod: dynatrace-prod
+
+    # ── 5. Error budget slow burn alert ────────────────────────────────────
+    - name: burn-alert-slow
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: MetricEvents
+        spec:
+          forProvider:
+            enabled: true
+            type: STATIC_THRESHOLD
+            queryDefinition:
+              type: METRIC_KEY
+              metricKey: "ext:slo.errorBudgetBurnRate"
+              aggregation: AVG
+            modelProperties:
+              alertCondition: ABOVE
+              violatingSamples: 1
+              samples: 18   # 6h window at 20min intervals
+              dealertingSamples: 18
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s — Error Budget Slow Burn 6h (%s)"
+          toFieldPath: spec.forProvider.name
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.alerts.burnRateSlow
+          toFieldPath: spec.forProvider.modelProperties.threshold
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev: dynatrace-dev
+                staging: dynatrace-staging
+                perf: dynatrace-perf
+                prod: dynatrace-prod
+
+    # ── 6. Synthetic HTTP health check ─────────────────────────────────────
+    - name: health-check-synthetic
+      base:
+        apiVersion: dynatrace.crossplane.io/v1alpha1
+        kind: SyntheticMonitor
+        spec:
+          forProvider:
+            enabled: true
+            type: HTTP
+            locations:
+              - SYNTHETIC_LOCATION-tkg-shared-01
+              - SYNTHETIC_LOCATION-tkg-shared-02
+
+      patches:
+        - type: PatchSet
+          patchSetName: common-metadata
+
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.serviceName
+              - fromFieldPath: spec.environment
+            strategy: string
+            string:
+              fmt: "%s Health Check (%s)"
+          toFieldPath: spec.forProvider.name
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.synthetic.url
+          toFieldPath: spec.forProvider.script.requests[0].url
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.synthetic.frequencyMinutes
+          toFieldPath: spec.forProvider.frequencyMin
+
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+            - type: map
+              map:
+                dev: dynatrace-dev
+                staging: dynatrace-staging
+                perf: dynatrace-perf
+                prod: dynatrace-prod
+
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.syntheticMonitorId

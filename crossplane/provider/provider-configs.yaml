@@ -1,0 +1,80 @@
+# One ProviderConfig per Dynatrace environment.
+# Each ProviderConfig points at a different DT tenant and uses its own token.
+# Credentials come from ExternalSecrets-managed Secrets (same ones the Monaco
+# CMP sidecar uses — no duplication).
+
+---
+apiVersion: dynatrace.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: dynatrace-dev
+spec:
+  environmentUrl:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-tenant-urls
+      key: dev-url
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-api-tokens
+      key: dev-token
+
+---
+apiVersion: dynatrace.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: dynatrace-staging
+spec:
+  environmentUrl:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-tenant-urls
+      key: staging-url
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-api-tokens
+      key: staging-token
+
+---
+apiVersion: dynatrace.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: dynatrace-perf
+spec:
+  environmentUrl:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-tenant-urls
+      key: perf-url
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-api-tokens
+      key: perf-token
+
+---
+apiVersion: dynatrace.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: dynatrace-prod
+spec:
+  environmentUrl:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-tenant-urls
+      key: prod-url
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: sre-tools
+      name: dynatrace-api-tokens
+      key: prod-token

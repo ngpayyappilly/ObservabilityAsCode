@@ -1,0 +1,42 @@
+# Crossplane provider-terraform — wraps Terraform modules as Kubernetes resources.
+# Gives you a continuous reconciliation loop over your existing TF modules
+# without writing a native Crossplane provider in Go.
+#
+# How it works:
+#   1. You create a Workspace CR pointing at a Terraform module.
+#   2. The provider-terraform controller runs `terraform apply` on a schedule.
+#   3. Status conditions surface plan/apply outcomes as k8s events.
+#   4. Drift is corrected automatically on the next reconcile cycle.
+#
+# Trade-off vs native provider:
+#   + Works today with your existing terraform/platform-resources/ module.
+#   + No Go code required.
+#   - Reconciliation granularity is per-Workspace (the whole module), not per-resource.
+#   - Slower than a native provider (full TF plan/apply each cycle).
+#   - Secrets must be projected as env vars or workspace vars.
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-terraform
+spec:
+  package: xpkg.upbound.io/upbound/provider-terraform:v0.14.0
+  controllerConfigRef:
+    name: provider-terraform-config
+
+---
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: provider-terraform-config
+spec:
+  # Run with Istio sidecar injection enabled — no inject:false annotation
+  serviceAccountName: crossplane-provider-terraform
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

@@ -1,0 +1,59 @@
+# Workspace CR — wraps terraform/platform-resources/ as a Crossplane resource.
+# The provider-terraform controller runs plan+apply on every reconcile cycle
+# (default: every 10 minutes) and surfaces status as k8s conditions.
+#
+# This replaces the manual `terraform apply` step for platform resources.
+# Argo CD syncs this manifest; Crossplane does the continuous reconciliation.
+
+apiVersion: tf.upbound.io/v1beta1
+kind: Workspace
+metadata:
+  name: dynatrace-platform-resources
+  namespace: sre-tools
+  annotations:
+    # Argo CD manages this manifest but Crossplane owns the reconciliation
+    argocd.argoproj.io/managed-by: argocd
+spec:
+  # Pull the Terraform module from the observability-template repo
+  forProvider:
+    source: Remote
+    module: git::https://dev.azure.com/YOUR_ORG/YOUR_PROJECT/_git/observability-template//terraform/platform-resources?ref=main
+
+    # Terraform variables — non-sensitive values inline, secrets from k8s Secrets
+    vars:
+      - key: dt_url
+        value: ""    # injected from environment variable below
+
+    # Sensitive variables come from ExternalSecrets-managed Secrets
+    varFiles:
+      - source: SecretKey
+        secretKeyRef:
+          namespace: sre-tools
+          name: dynatrace-platform-tfvars
+          key: terraform.tfvars.json
+
+    # Environment variables available to the TF provider
+    env:
+      - name: DT_ENV_URL
+        valueFrom:
+          secretKeyRef:
+            name: dynatrace-tenant-urls
+            key: prod-url
+      - name: DT_API_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: dynatrace-api-tokens
+            key: prod-token
+      # Vault token for the vault provider (writes DT tokens to Vault)
+      - name: VAULT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: vault-crossplane-token
+            key: token
+      - name: VAULT_ADDR
+        value: "https://vault.internal"
+
+  # Reconcile every 10 minutes — corrects any drift in platform resources
+  writeConnectionSecretToRef:
+    namespace: sre-tools
+    name: dynatrace-platform-outputs    # TF outputs written here (MZ IDs, profile IDs)
