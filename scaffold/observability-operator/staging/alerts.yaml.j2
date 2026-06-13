@@ -1,0 +1,35 @@
+# Dynatrace alerts for {{ service_name }} — staging.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-error-rate
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: staging
+spec:
+  environment: staging
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: errorRate
+  threshold: 1.0
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_staging"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-burn-fast
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: staging
+spec:
+  environment: staging
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: burnRateFast
+  threshold: 12
+  # Controller reads the DT SLO ID from .status.dynatraceId of this SLO
+  sloRef: {{ service_name }}-availability
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_staging"
