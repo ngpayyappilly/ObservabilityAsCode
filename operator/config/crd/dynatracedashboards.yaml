@@ -1,0 +1,117 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dynatracedashboards.oac.YOUR_ORG.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+spec:
+  group: oac.YOUR_ORG.io
+  names:
+    kind: DynatraceDashboard
+    listKind: DynatraceDashboardList
+    plural: dynatracedashboards
+    singular: dynatracedashboard
+    shortNames:
+      - dtdash
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Environment
+          type: string
+          jsonPath: .spec.environment
+        - name: Template
+          type: string
+          jsonPath: .spec.template
+        - name: Synced
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Synced")].status
+        - name: URL
+          type: string
+          jsonPath: .status.dashboardUrl
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required: [environment, serviceSelector]
+              properties:
+                environment:
+                  type: string
+                  enum: [dev, staging, perf, prod]
+                serviceSelector:
+                  type: object
+                  properties:
+                    backstageId:
+                      type: string
+                    serviceName:
+                      type: string
+                    managementZone:
+                      type: string
+                template:
+                  type: string
+                  enum: [service-overview, slo-report, endpoint-detail]
+                  default: service-overview
+                  description: |
+                    Pre-built dashboard layout:
+                      service-overview — SLO tiles + request rate + error rate
+                      slo-report       — detailed SLO history and burn rate charts
+                      endpoint-detail  — per-endpoint latency and throughput breakdown
+                sloRefs:
+                  type: array
+                  description: Names of DynatraceSLOs in the same namespace to tile on the dashboard.
+                  items:
+                    type: string
+                shared:
+                  type: boolean
+                  default: false
+                  description: Whether the dashboard is publicly visible in the DT UI.
+            status:
+              type: object
+              properties:
+                dynatraceId:
+                  type: string
+                dashboardUrl:
+                  type: string
+                  description: Direct link to the dashboard in the Dynatrace UI.
+                lastSyncTime:
+                  type: string
+                  format: date-time
+                observedGeneration:
+                  type: integer
+                  format: int64
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status, reason, lastTransitionTime]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", Unknown]
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      observedGeneration:
+                        type: integer
+                        format: int64

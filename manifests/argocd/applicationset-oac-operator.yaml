@@ -1,0 +1,94 @@
+# ApplicationSet for the operator-based OaC approach.
+# Key difference from applicationset-oac.yaml:
+#   - No plugin block — Argo CD syncs raw Kubernetes manifests (CRDs)
+#   - path: observability/{{ env }} — one directory per environment
+#   - The dynatrace-operator controller reconciles the CRDs to Dynatrace
+#   - No Monaco CMP sidecar, no PostSync Job, no drift CronJob needed
+#
+# Drift detection is built into the operator's requeueAfter (5 min default).
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: per-app-observability-operator
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          # Discover app repos that have the operator-style observability folder
+          - scmProvider:
+              azureDevOps:
+                organization: YOUR_ORG
+                project: YOUR_PROJECT
+                accessTokenRef:
+                  secretName: ado-token
+                  secretKey: token
+              filters:
+                # Detect repos using operator approach (presence of a CRD manifest)
+                - pathsExist:
+                    - observability/prod/slos.yaml
+
+          # One Argo CD Application per environment
+          - list:
+              elements:
+                - env: dev
+                  wave: "1"
+                - env: staging
+                  wave: "2"
+                - env: perf
+                  wave: "3"
+                - env: prod
+                  wave: "4"
+
+  template:
+    metadata:
+      name: "oac-{{ repository }}-{{ env }}"
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{ wave }}"
+      labels:
+        app.kubernetes.io/managed-by: argocd
+        oac/environment: "{{ env }}"
+        oac/repository: "{{ repository }}"
+
+    spec:
+      project: default
+
+      source:
+        repoURL: "{{ url }}"
+        targetRevision: "{{ branch }}"
+        # Each environment has its own directory — Argo CD syncs just that env's CRDs
+        path: "observability/{{ env }}"
+        # No plugin block — standard Kubernetes manifest sync
+        # Argo CD reads the DynatraceSLO/DynatraceAlert YAML files directly
+
+      destination:
+        server: https://kubernetes.default.svc
+        # CRDs are namespaced to the service's own namespace (set in each manifest)
+        # Using the app's namespace here, but individual CRDs override via metadata.namespace
+        namespace: sre-tools
+
+      syncPolicy:
+        automated:
+          prune: true          # Remove CRDs when files are deleted from Git
+          selfHeal: true       # Re-apply if someone manually edits a CRD in the cluster
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+
+  # Prod: manual sync — same as before
+  templatePatch: |
+    {{- if eq .env "prod" }}
+    spec:
+      syncPolicy:
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+    {{- end }}

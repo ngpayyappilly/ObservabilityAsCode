@@ -1,0 +1,71 @@
+# Dynatrace alerts for {{ service_name }} — prod.
+# Google SRE Workbook dual-window burn rate: 14× (1h) + 6× (6h).
+# Both route to PagerDuty via the prod alerting profile.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-error-rate
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: errorRate
+  threshold: 0.5
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latencyP99
+  threshold: 300
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+---
+# Fast burn: pages immediately when error budget burns 14× in 1h
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-burn-fast
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: burnRateFast
+  threshold: 14
+  sloRef: {{ service_name }}-availability   # operator reads SLO ID from .status.dynatraceId
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+---
+# Slow burn: pages when budget burns 6× in 6h — ticket-level urgency
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-burn-slow
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: burnRateSlow
+  threshold: 6
+  sloRef: {{ service_name }}-availability
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"

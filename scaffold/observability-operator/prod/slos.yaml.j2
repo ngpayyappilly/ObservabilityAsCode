@@ -1,0 +1,40 @@
+# Dynatrace SLOs for {{ service_name }} — prod environment.
+# These targets represent contractual SLAs. The operator blocks spec changes
+# that would lower the target by more than 0.1% (enforced by admission webhook).
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-availability
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: availability
+  target: 99.9
+  warning: 99.5
+  window: "-1w"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latency
+  target: 99.9
+  warning: 99.5
+  latencyThresholdMs: 300
+  window: "-1w"

@@ -1,0 +1,37 @@
+# Dynatrace SLOs for {{ service_name }} — perf environment.
+# Relaxed thresholds — load tests generate synthetic traffic and errors.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-availability
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: perf
+spec:
+  environment: perf
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: availability
+  target: 99.0
+  warning: 98.0
+  window: "-1w"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: perf
+spec:
+  environment: perf
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latency
+  target: 99.0
+  warning: 98.0
+  latencyThresholdMs: 800
+  window: "-1w"

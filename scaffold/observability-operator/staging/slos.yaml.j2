@@ -1,0 +1,38 @@
+# Dynatrace SLOs for {{ service_name }} — staging environment.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-availability
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: staging
+spec:
+  environment: staging
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: availability
+  target: 99.5
+  warning: 99.0
+  window: "-1w"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: staging
+spec:
+  environment: staging
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latency
+  target: 99.5
+  warning: 99.0
+  latencyThresholdMs: 400
+  window: "-1w"

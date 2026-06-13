@@ -1,0 +1,114 @@
+# Everything a team needs for full observability on payments-api in prod.
+# Four files. No Monaco. No Jinja2. No generated configs.
+# Argo CD syncs these; the operator reconciles to Dynatrace.
+
+---
+# Availability SLO — 99.9% successful requests over 1 week
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: payments-api-availability
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api    # resolves to DT SERVICE entity via auto-tag
+  type: availability
+  target: 99.9
+  warning: 99.5
+  window: "-1w"
+
+---
+# Latency SLO — p99 < 300ms, 99.9% of the time
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: payments-api-latency
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  type: latency
+  target: 99.9
+  warning: 99.5
+  latencyThresholdMs: 300
+
+---
+# Error rate alert — fires when error rate exceeds 0.5%
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: payments-api-error-rate
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  type: errorRate
+  threshold: 0.5
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+
+---
+# Fast burn alert — error budget burning 14× faster than sustainable (1h window)
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: payments-api-burn-fast
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  type: burnRateFast
+  threshold: 14
+  # Controller reads the DT SLO ID from the referenced DynatraceSLO status
+  sloRef: payments-api-availability
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+
+---
+# Slow burn alert — error budget burning 6× faster over 6h window
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: payments-api-burn-slow
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  type: burnRateSlow
+  threshold: 6
+  sloRef: payments-api-availability
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+
+---
+# Service overview dashboard — tiles SLOs + request rate + error rate
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceDashboard
+metadata:
+  name: payments-api-overview
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  template: service-overview
+  sloRefs:
+    - payments-api-availability
+    - payments-api-latency
+  shared: false
+
+---
+# PagerDuty notification for prod alerts
+apiVersion: dynatrace.YOUR_ORG.io/v1alpha1
+kind: DynatraceNotification
+metadata:
+  name: payments-api-pagerduty
+  namespace: payments-api
+spec:
+  environment: prod
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_prod"
+  channel: pagerduty
+  secretRef:
+    name: pagerduty-payments-api    # ESO creates this from Vault

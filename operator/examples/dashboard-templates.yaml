@@ -1,0 +1,70 @@
+# Three dashboard templates — pick the one that suits the use case.
+# The operator selects the layout based on spec.template and renders
+# all tiles with the correct service name, environment, management zone,
+# and real Dynatrace SLO IDs resolved from spec.sloRefs.
+
+# ── Template 1: service-overview (default) ───────────────────────────────
+# Layout:
+#   Row 0: Markdown header (service name + environment + management zone)
+#   Row 1: SLO tiles (one per sloRef) + Request Rate chart
+#   Row 2: Error Rate chart | p99 Latency chart
+#   Row 3: Error Budget Burn Rate (full width)
+#   Row 4: p50 | p75 | p95 | p99 latency single-value tiles
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceDashboard
+metadata:
+  name: payments-api-overview
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  template: service-overview
+  sloRefs:
+    - payments-api-availability   # resolved to SLO-xxx → SLO tile shows Availability (99.9%)
+    - payments-api-latency-p99    # resolved to SLO-yyy → SLO tile shows Latency p99 < 300ms (99.9%)
+  shared: false
+
+# ── Template 2: slo-report ────────────────────────────────────────────────
+# Layout:
+#   Row 0: Markdown header
+#   Row 1: SLO status tiles + SLO Compliance History chart
+#   Row 2: Error Budget Remaining | Fast Burn Rate (1h window)
+#   Row 3: Slow Burn Rate (6h window) | Availability vs Target
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceDashboard
+metadata:
+  name: payments-api-slo-report
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  template: slo-report
+  sloRefs:
+    - payments-api-availability
+    - payments-api-latency-p99
+  shared: true    # visible to all DT users in this tenant
+
+# ── Template 3: endpoint-detail ───────────────────────────────────────────
+# Layout:
+#   Row 0: Markdown header
+#   Row 1: Throughput by Endpoint | Error Rate by Endpoint
+#   Row 2: p50 Latency by Endpoint | p99 Latency by Endpoint
+#   Row 3: Slowest Endpoints table (full width, top 20)
+# Note: this template does not use sloRefs — it splits by SERVICE_METHOD entity.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceDashboard
+metadata:
+  name: payments-api-endpoints
+  namespace: payments-api
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: payments-api
+  template: endpoint-detail
+  # sloRefs not needed for endpoint-detail — metrics are per endpoint, not per SLO
+  shared: false

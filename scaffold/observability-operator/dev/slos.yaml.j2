@@ -1,0 +1,40 @@
+# Dynatrace SLOs for {{ service_name }} — dev environment.
+# Argo CD syncs these CRDs; the dynatrace-operator controller reconciles them to Dynatrace.
+# Targets are relaxed in dev — tight targets here cause alert fatigue.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-availability
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: dev
+spec:
+  environment: dev
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: availability
+  target: 99.0
+  warning: 98.5
+  window: "-1w"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceSLO
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    app.kubernetes.io/part-of: dynatrace-oac
+    oac/environment: dev
+spec:
+  environment: dev
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latency
+  target: 99.0
+  warning: 98.5
+  latencyThresholdMs: 500
+  window: "-1w"

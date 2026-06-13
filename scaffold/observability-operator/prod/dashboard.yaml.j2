@@ -1,0 +1,21 @@
+# Dynatrace dashboard for {{ service_name }} — prod.
+# The controller resolves sloRefs to DT SLO IDs via .status.dynatraceId
+# and builds the dashboard JSON with live SLO tile references.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceDashboard
+metadata:
+  name: {{ service_name }}-overview
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: prod
+spec:
+  environment: prod
+  serviceSelector:
+    backstageId: {{ service_name }}
+  template: service-overview
+  sloRefs:
+    - {{ service_name }}-availability
+    - {{ service_name }}-latency-p99
+  shared: false

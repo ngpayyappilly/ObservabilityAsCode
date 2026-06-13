@@ -1,0 +1,34 @@
+# Dynatrace alerts for {{ service_name }} — dev environment.
+# Slack only in dev — no paging.
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-error-rate
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: dev
+spec:
+  environment: dev
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: errorRate
+  threshold: 2.0
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_dev"
+---
+apiVersion: oac.YOUR_ORG.io/v1alpha1
+kind: DynatraceAlert
+metadata:
+  name: {{ service_name }}-latency-p99
+  namespace: {{ service_name }}
+  labels:
+    app.kubernetes.io/name: {{ service_name }}
+    oac/environment: dev
+spec:
+  environment: dev
+  serviceSelector:
+    backstageId: {{ service_name }}
+  type: latencyP99
+  threshold: 500
+  alertingProfileRef: "REPLACE_WITH_TF_OUTPUT_alerting_profile_ids_dev"

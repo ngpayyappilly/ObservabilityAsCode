@@ -1,0 +1,114 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dynatracealerts.oac.YOUR_ORG.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+spec:
+  group: oac.YOUR_ORG.io
+  names:
+    kind: DynatraceAlert
+    listKind: DynatraceAlertList
+    plural: dynatracealerts
+    singular: dynatracealert
+    shortNames:
+      - dtalert
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Environment
+          type: string
+          jsonPath: .spec.environment
+        - name: Type
+          type: string
+          jsonPath: .spec.type
+        - name: Threshold
+          type: number
+          jsonPath: .spec.threshold
+        - name: Synced
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Synced")].status
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required: [environment, serviceSelector, type, threshold]
+              properties:
+                environment:
+                  type: string
+                  enum: [dev, staging, perf, prod]
+                serviceSelector:
+                  type: object
+                  properties:
+                    backstageId:
+                      type: string
+                    serviceName:
+                      type: string
+                    managementZone:
+                      type: string
+                type:
+                  type: string
+                  enum: [errorRate, latencyP99, burnRateFast, burnRateSlow]
+                  description: |
+                    Alert strategy:
+                      errorRate    — fires when error rate exceeds threshold (%)
+                      latencyP99   — fires when p99 latency exceeds threshold (ms)
+                      burnRateFast — fires when error budget burns threshold× faster than sustainable (1h window)
+                      burnRateSlow — fires when error budget burns threshold× faster (6h window)
+                threshold:
+                  type: number
+                  description: Alert threshold value. Units depend on type.
+                sloRef:
+                  type: string
+                  description: Name of a DynatraceSLO in the same namespace. Required for burnRate* types. Controller reads the DT SLO ID from its status.
+                alertingProfileRef:
+                  type: string
+                  description: Dynatrace alerting profile ID from Terraform output, or name of a DynatraceAlertingProfile CR.
+            status:
+              type: object
+              properties:
+                dynatraceId:
+                  type: string
+                lastSyncTime:
+                  type: string
+                  format: date-time
+                observedGeneration:
+                  type: integer
+                  format: int64
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status, reason, lastTransitionTime]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", Unknown]
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      observedGeneration:
+                        type: integer
+                        format: int64
