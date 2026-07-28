@@ -1,0 +1,15 @@
+# Log-derived metric: counts ERROR-level log events for this service.
+# Uses DQL to filter by Kubernetes namespace and log level.
+# Split by error.type for cardinality-safe aggregation (bounded dimension).
+# Dynatrace builtin:log.metrics type.
+
+configs:
+  - id: {{ service_name }}-log-metric-errors
+    type:
+      settings:
+        schema: builtin:log.metrics
+        scope: environment
+    config:
+      name: "log.{{ service_name }}.errors"
+      template: error-log-metric.json
+      skip: false

@@ -7,7 +7,7 @@ configs:
       api: anomaly-detection-metrics
     config:
       name: "{{ service_name }} Latency p99 Alert"
-      template: latency-p99.json.j2
+      template: latency-p99.json
       parameters:
         LatencyP99Ms:
           type: environment

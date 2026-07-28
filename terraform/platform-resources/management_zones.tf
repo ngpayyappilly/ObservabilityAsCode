@@ -26,8 +26,8 @@ resource "dynatrace_management_zone_v2" "environment" {
     # This is the primary rule. Works for services, process groups, synthetics,
     # and any future entity type — as long as the `environment` k8s label is set.
     rule {
-      type    = "SELECTOR"
-      enabled = true
+      type            = "SELECTOR"
+      enabled         = true
       entity_selector = "tag(\"environment:${each.value.label}\")"
     }
 

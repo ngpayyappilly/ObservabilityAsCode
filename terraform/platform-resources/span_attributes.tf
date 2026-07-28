@@ -130,10 +130,10 @@ resource "dynatrace_span_capture_rule" "always_capture_errors" {
 
   matches {
     match {
-      source     = "ATTRIBUTE"
-      key        = "error"
-      comparison = "EQUALS"
-      value      = "true"
+      source         = "ATTRIBUTE"
+      key            = "error"
+      comparison     = "EQUALS"
+      value          = "true"
       case_sensitive = false
     }
   }
@@ -163,27 +163,27 @@ resource "dynatrace_span_capture_rule" "ignore_health_spans" {
 
   matches {
     match {
-      source     = "SPAN_NAME"
-      comparison = "CONTAINS"
-      value      = "/health"
+      source         = "SPAN_NAME"
+      comparison     = "CONTAINS"
+      value          = "/health"
       case_sensitive = false
     }
     match {
-      source     = "SPAN_NAME"
-      comparison = "CONTAINS"
-      value      = "/ready"
+      source         = "SPAN_NAME"
+      comparison     = "CONTAINS"
+      value          = "/ready"
       case_sensitive = false
     }
     match {
-      source     = "SPAN_NAME"
-      comparison = "CONTAINS"
-      value      = "/live"
+      source         = "SPAN_NAME"
+      comparison     = "CONTAINS"
+      value          = "/live"
       case_sensitive = false
     }
     match {
-      source     = "SPAN_NAME"
-      comparison = "CONTAINS"
-      value      = "/metrics"
+      source         = "SPAN_NAME"
+      comparison     = "CONTAINS"
+      value          = "/metrics"
       case_sensitive = false
     }
   }
@@ -197,9 +197,9 @@ resource "dynatrace_span_capture_rule" "ignore_istio_internal" {
 
   matches {
     match {
-      source     = "INSTRUMENTATION_LIBRARY_NAME"
-      comparison = "STARTS_WITH"
-      value      = "istio"
+      source         = "INSTRUMENTATION_LIBRARY_NAME"
+      comparison     = "STARTS_WITH"
+      value          = "istio"
       case_sensitive = false
     }
   }

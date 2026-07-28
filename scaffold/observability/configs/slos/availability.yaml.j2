@@ -9,7 +9,7 @@ configs:
       api: slo
     config:
       name: "{{ service_name }} Availability SLO"
-      template: availability-slo.json.j2
+      template: availability-slo.json
       parameters:
         # These Monaco parameter references are resolved at deploy time
         # from the per-environment variable file.

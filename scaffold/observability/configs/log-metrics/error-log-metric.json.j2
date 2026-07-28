@@ -1,0 +1,15 @@
+{
+  "metricKey": "log.{{ service_name }}.errors",
+  "displayName": "{{ service_name }} Error Log Count",
+  "active": true,
+  "query": "fetch logs | filter k8s.namespace.name == \"{{ service_name }}\" | filter level == \"ERROR\" | summarize count = count(), by: bin(timestamp, 1m), error.type",
+  "dimensions": [
+    {
+      "name": "error.type",
+      "type": "ATTRIBUTE",
+      "attribute": "error.type",
+      "topX": 50
+    }
+  ],
+  "unit": "COUNT"
+}

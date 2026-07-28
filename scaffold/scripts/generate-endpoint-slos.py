@@ -12,7 +12,7 @@ Usage:
     python scripts/generate-endpoint-slos.py \
         --endpoints observability/slos/endpoints/critical-endpoints.yaml \
         --env-file observability/environments/prod.yaml \
-        --output-dir observability/slos/endpoints/generated
+        --output-dir observability/configs/slos/endpoints/generated
 
 The generated YAML files are standard Monaco config descriptors that
 reference the JSON template files in the same directory.
@@ -67,7 +67,7 @@ def _build_availability_config(
         "type": {"api": "slo"},
         "config": {
             "name": f"{service} {endpoint['method']} {endpoint['path']} Availability SLO",
-            "template": "../endpoint-availability-slo.json.j2",
+            "template": "../endpoint-availability-slo.json",
             "parameters": {
                 "ServiceName":        {"type": "value", "value": service},
                 "HttpMethod":         {"type": "value", "value": endpoint["method"].upper()},
@@ -100,7 +100,7 @@ def _build_latency_config(
         "type": {"api": "slo"},
         "config": {
             "name": f"{service} {endpoint['method']} {endpoint['path']} Latency p99 SLO",
-            "template": "../endpoint-latency-slo.json.j2",
+            "template": "../endpoint-latency-slo.json",
             "parameters": {
                 "ServiceName":        {"type": "value", "value": service},
                 "HttpMethod":         {"type": "value", "value": endpoint["method"].upper()},
@@ -134,7 +134,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output-dir",
-        default="observability/slos/endpoints/generated",
+        default="observability/configs/slos/endpoints/generated",
         help="Directory to write generated Monaco config files into",
     )
     args = parser.parse_args()

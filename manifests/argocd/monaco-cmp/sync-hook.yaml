@@ -32,7 +32,7 @@ spec:
             - |
               set -e
               monaco deploy \
-                --manifest /workspace/manifest.yaml \
+                /workspace/manifest.yaml \
                 --environment "${DT_ENV}" \
                 --verbose
           env:

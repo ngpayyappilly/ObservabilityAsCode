@@ -104,20 +104,20 @@ resource "dynatrace_autotag_v2" "backstage" {
   rules {
     # ── PROCESS_GROUP — read pod labels via PROCESS_GROUP_PREDEFINED_METADATA ──
     rule {
-      type               = "ME"
-      enabled            = true
+      type    = "ME"
+      enabled = true
       # Tag value = the label value from the pod, normalised to lowercase
-      value_format       = "{ProcessGroup:KubernetesBasePodName}"
+      value_format        = "{ProcessGroup:KubernetesBasePodName}"
       value_normalization = "To lower case"
 
       attribute_rule {
         entity_type               = "PROCESS_GROUP"
-        pg_to_service_propagation = true   # tag flows up to SERVICE automatically
+        pg_to_service_propagation = true # tag flows up to SERVICE automatically
 
         conditions {
           condition {
-            key              = "PROCESS_GROUP_PREDEFINED_METADATA"
-            operator         = "EXISTS"
+            key      = "PROCESS_GROUP_PREDEFINED_METADATA"
+            operator = "EXISTS"
             # dynamic_key targets the specific Kubernetes label
             dynamic_key        = each.value.dynamic_key
             dynamic_key_source = "KUBERNETES_LABEL"
@@ -130,9 +130,9 @@ resource "dynatrace_autotag_v2" "backstage" {
 
     # Override value_format for this rule to use the actual label value
     rule {
-      type               = "ME"
-      enabled            = true
-      value_format       = "{ProcessGroup:KubernetesLabel[${each.value.dynamic_key}]}"
+      type                = "ME"
+      enabled             = true
+      value_format        = "{ProcessGroup:KubernetesLabel[${each.value.dynamic_key}]}"
       value_normalization = "To lower case"
 
       attribute_rule {
@@ -141,8 +141,8 @@ resource "dynatrace_autotag_v2" "backstage" {
 
         conditions {
           condition {
-            key              = "PROCESS_GROUP_PREDEFINED_METADATA"
-            operator         = "EXISTS"
+            key                = "PROCESS_GROUP_PREDEFINED_METADATA"
+            operator           = "EXISTS"
             dynamic_key        = each.value.dynamic_key
             dynamic_key_source = "KUBERNETES_LABEL"
           }

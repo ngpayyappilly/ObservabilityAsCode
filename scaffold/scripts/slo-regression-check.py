@@ -11,7 +11,7 @@ Skips files where the target is still a Monaco template reference
 Usage:
     python scripts/slo-regression-check.py \
         --base-branch origin/main \
-        --changed-path observability/slos/ \
+        --changed-path observability/configs/slos/ \
         --threshold 0.1
 """
 
@@ -95,7 +95,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Block SLO target regressions in PRs")
     parser.add_argument("--base-branch", default="origin/main",
                         help="Base branch to compare against")
-    parser.add_argument("--changed-path", default="observability/slos/",
+    parser.add_argument("--changed-path", default="observability/configs/slos/",
                         help="Path prefix to check for changed SLO files")
     parser.add_argument("--threshold", type=float, default=0.1,
                         help="Max allowed SLO target drop in percentage points")

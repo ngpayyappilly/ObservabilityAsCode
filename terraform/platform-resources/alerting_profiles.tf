@@ -27,50 +27,50 @@ locals {
 
 resource "dynatrace_alerting" "environment" {
   for_each        = var.environments
-  name            = each.value.label                    # matches AlertingProfileId referenced in Monaco env files
+  name            = each.value.label # matches AlertingProfileId referenced in Monaco env files
   management_zone = dynatrace_management_zone_v2.environment[each.key].id
 
   rules {
     # ── AVAILABILITY — always notify, no delay ──────────────────────────
     rule {
-      severity_level  = local.severity.availability
+      severity_level   = local.severity.availability
       delay_in_minutes = 0
-      include_mode    = "INCLUDE_ALL"
+      include_mode     = "INCLUDE_ALL"
     }
 
     # ── ERROR — always notify, no delay ────────────────────────────────
     rule {
-      severity_level  = local.severity.error
+      severity_level   = local.severity.error
       delay_in_minutes = 0
-      include_mode    = "INCLUDE_ALL"
+      include_mode     = "INCLUDE_ALL"
     }
 
     # ── PERFORMANCE — delay varies by env (immediate in prod, 5min elsewhere) ──
     rule {
-      severity_level  = local.severity.performance
+      severity_level   = local.severity.performance
       delay_in_minutes = each.value.label == "prod" ? 5 : 0
-      include_mode    = "INCLUDE_ALL"
+      include_mode     = "INCLUDE_ALL"
     }
 
     # ── RESOURCE — only include in perf and prod ────────────────────────
     rule {
-      severity_level  = local.severity.resource
+      severity_level   = local.severity.resource
       delay_in_minutes = 0
-      include_mode    = contains(["perf", "prod"], each.value.label) ? "INCLUDE_ALL" : "NONE"
+      include_mode     = contains(["perf", "prod"], each.value.label) ? "INCLUDE_ALL" : "NONE"
     }
 
     # ── CUSTOM_ALERT — SLO burn rate alerts from Monaco metric events ───
     rule {
-      severity_level  = local.severity.custom
+      severity_level   = local.severity.custom
       delay_in_minutes = 0
-      include_mode    = "INCLUDE_ALL"
+      include_mode     = "INCLUDE_ALL"
     }
 
     # ── MONITORING_UNAVAILABLE — only prod and staging care ────────────
     rule {
-      severity_level  = local.severity.monitoring
+      severity_level   = local.severity.monitoring
       delay_in_minutes = 0
-      include_mode    = contains(["staging", "prod"], each.value.label) ? "INCLUDE_ALL" : "NONE"
+      include_mode     = contains(["staging", "prod"], each.value.label) ? "INCLUDE_ALL" : "NONE"
     }
   }
 

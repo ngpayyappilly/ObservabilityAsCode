@@ -94,8 +94,26 @@ stages:
             displayName: "Install Monaco CLI $(MONACO_VERSION)"
 
           - script: |
-              monaco validate --manifest observability/manifest.yaml
-            displayName: "Validate Monaco manifest"
+              # Structural validation only — monaco has no separate `validate`
+              # subcommand, so `deploy --dry-run` is used instead. It resolves
+              # parameters and renders JSON templates but never calls the DT
+              # API, so placeholder values are enough; real staging creds are
+              # only needed by the "Monaco dry-run (staging)" job below.
+              export DT_DEV_URL="https://placeholder.live.dynatrace.com"
+              export DT_DEV_TOKEN="placeholder-token"
+              export DT_STAGING_URL="https://placeholder.live.dynatrace.com"
+              export DT_STAGING_TOKEN="placeholder-token"
+              export DT_PERF_URL="https://placeholder.live.dynatrace.com"
+              export DT_PERF_TOKEN="placeholder-token"
+              export DT_PROD_URL="https://placeholder.live.dynatrace.com"
+              export DT_PROD_TOKEN="placeholder-token"
+              export SLOTarget="99.9" SLOWarning="99.5" LatencyThresholdMs="500"
+              export LatencyTarget="500" LatencyP99Ms="500" ErrorRateThreshold="2.0"
+              export BurnRateFast="10" BurnRateSlow="5" ManagementZone="env:dev"
+              export AlertingProfileId="placeholder" SyntheticFreqMin="5"
+              export SyntheticUrl="https://placeholder.internal/health"
+              monaco deploy observability/manifest.yaml --dry-run --verbose
+            displayName: "Validate Monaco manifest (structural, no secrets)"
 
       # Job: Monaco dry-run against staging
       - job: monaco_dry_run
@@ -110,7 +128,7 @@ stages:
 
           - script: |
               monaco deploy \
-                --manifest observability/manifest.yaml \
+                observability/manifest.yaml \
                 --environment staging \
                 --dry-run \
                 --verbose
@@ -179,7 +197,7 @@ stages:
           - script: |
               python scripts/slo-regression-check.py \
                 --base-branch origin/$(System.PullRequest.TargetBranch) \
-                --changed-path observability/slos/ \
+                --changed-path observability/configs/slos/ \
                 --threshold 0.1
             displayName: "Check for SLO target regressions"
 
@@ -205,7 +223,7 @@ stages:
 
               # Diff generated output vs what's committed
               DIFF=$(diff -rq \
-                observability/slos/endpoints/generated/ \
+                observability/configs/slos/endpoints/generated/ \
                 /tmp/endpoint-slos-generated/ \
                 --exclude=".gitkeep" 2>&1 || true)
 

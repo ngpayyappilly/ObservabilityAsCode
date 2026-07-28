@@ -12,7 +12,7 @@ configs:
       api: anomaly-detection-metrics
     config:
       name: "{{ service_name }} Error Budget Fast Burn"
-      template: error-budget-burn.json.j2
+      template: error-budget-burn.json
       parameters:
         BurnRate:
           type: environment
@@ -46,7 +46,7 @@ configs:
       api: anomaly-detection-metrics
     config:
       name: "{{ service_name }} Error Budget Slow Burn"
-      template: error-budget-burn.json.j2
+      template: error-budget-burn.json
       parameters:
         BurnRate:
           type: environment

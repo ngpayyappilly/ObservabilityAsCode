@@ -57,7 +57,7 @@ data:
             set -e
             DT_ENV="${ARGOCD_ENV_DT_ENV:-dev}"
             monaco deploy \
-              --manifest manifest.yaml \
+              manifest.yaml \
               --environment "$DT_ENV" \
               --dry-run \
               --verbose 2>&1 | tee /tmp/monaco-output.log

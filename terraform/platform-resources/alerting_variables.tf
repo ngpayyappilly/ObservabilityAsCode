@@ -17,8 +17,8 @@ variable "notifications" {
     msteams = optional(object({
       enabled = bool
       channels = map(object({
-        webhook_url = string
-        team_name   = string # display only
+        webhook_url  = string
+        team_name    = string # display only
         channel_name = string
       }))
     }))

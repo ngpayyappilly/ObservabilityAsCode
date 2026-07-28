@@ -21,10 +21,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "dynatrace_slack_notification" "environment" {
-  for_each = (
+  # Only the environment-name keys are exposed here, never the secret values —
+  # nonsensitive() is required because Terraform forbids sensitive values in
+  # for_each keys, and var.notifications is marked sensitive as a whole.
+  for_each = nonsensitive(
     try(var.notifications.slack.enabled, false)
     ? { for k, v in var.environments : k => v
-        if try(var.notifications.slack.channels[k], null) != null }
+    if try(var.notifications.slack.channels[k], null) != null }
     : {}
   )
 
@@ -42,10 +45,10 @@ resource "dynatrace_slack_notification" "environment" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "dynatrace_msteams_connection" "environment" {
-  for_each = (
+  for_each = nonsensitive(
     try(var.notifications.msteams.enabled, false)
     ? { for k, v in var.environments : k => v
-        if try(var.notifications.msteams.channels[k], null) != null }
+    if try(var.notifications.msteams.channels[k], null) != null }
     : {}
   )
 
@@ -60,10 +63,10 @@ resource "dynatrace_msteams_connection" "environment" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "dynatrace_pager_duty_notification" "environment" {
-  for_each = (
+  for_each = nonsensitive(
     try(var.notifications.pagerduty.enabled, false)
     ? { for k, v in var.environments : k => v
-        if try(var.notifications.pagerduty.integrations[k], null) != null }
+    if try(var.notifications.pagerduty.integrations[k], null) != null }
     : {}
   )
 
@@ -82,10 +85,10 @@ resource "dynatrace_pager_duty_notification" "environment" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "dynatrace_victor_ops_notification" "environment" {
-  for_each = (
+  for_each = nonsensitive(
     try(var.notifications.splunk_oncall.enabled, false)
     ? { for k, v in var.environments : k => v
-        if try(var.notifications.splunk_oncall.integrations[k], null) != null }
+    if try(var.notifications.splunk_oncall.integrations[k], null) != null }
     : {}
   )
 

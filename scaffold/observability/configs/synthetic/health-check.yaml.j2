@@ -9,7 +9,7 @@ configs:
       api: synthetic-monitor
     config:
       name: "{{ service_name }} Health Check"
-      template: http-monitor.json.j2
+      template: http-monitor.json
       parameters:
         ServiceName:
           type: value

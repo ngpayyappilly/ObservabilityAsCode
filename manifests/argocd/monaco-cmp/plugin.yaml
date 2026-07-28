@@ -70,7 +70,7 @@ spec:
         # Run Monaco deploy in dry-run mode so Argo CD sees changes without applying them.
         # The actual apply happens via the PostSync Job (sync-hook.yaml).
         monaco deploy \
-          --manifest manifest.yaml \
+          manifest.yaml \
           --environment "$DT_ENV" \
           --dry-run \
           --verbose 2>&1 | tee /tmp/monaco-output.log

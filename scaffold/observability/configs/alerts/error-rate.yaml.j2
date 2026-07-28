@@ -8,7 +8,7 @@ configs:
       api: anomaly-detection-metrics
     config:
       name: "{{ service_name }} Error Rate Alert"
-      template: error-rate.json.j2
+      template: error-rate.json
       parameters:
         ErrorRateThreshold:
           type: environment

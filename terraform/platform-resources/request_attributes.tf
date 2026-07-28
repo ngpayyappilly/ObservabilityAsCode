@@ -44,7 +44,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Backstage-Team", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "team", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "team", technology = null },
       ]
     }
 
@@ -56,7 +56,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Backstage-Service", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "service.name", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "service.name", technology = null },
       ]
     }
 
@@ -68,7 +68,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Backstage-Env", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "deployment.environment", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "deployment.environment", technology = null },
       ]
     }
 
@@ -80,7 +80,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Backstage-Domain", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "domain", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "domain", technology = null },
       ]
     }
 
@@ -92,7 +92,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Backstage-System", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "system", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "system", technology = null },
       ]
     }
 
@@ -107,8 +107,8 @@ locals {
       sources = [
         # Standard distributed tracing correlation header
         { source = "REQUEST_HEADER", parameter_name = "X-Correlation-ID", technology = null },
-        { source = "REQUEST_HEADER", parameter_name = "X-Request-ID",     technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "correlation.id", technology = null },
+        { source = "REQUEST_HEADER", parameter_name = "X-Request-ID", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "correlation.id", technology = null },
       ]
     }
 
@@ -119,8 +119,8 @@ locals {
       normalization = "TO_LOWER_CASE"
       confidential  = false
       sources = [
-        { source = "REQUEST_HEADER", parameter_name = "X-Tenant-ID",  technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "tenant.id", technology = null },
+        { source = "REQUEST_HEADER", parameter_name = "X-Tenant-ID", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "tenant.id", technology = null },
       ]
     }
 
@@ -132,7 +132,7 @@ locals {
       confidential  = false
       sources = [
         { source = "REQUEST_HEADER", parameter_name = "X-Feature-Flag", technology = null },
-        { source = "SPAN_ATTRIBUTE",  parameter_name = null, span_attribute_key = "feature.flag", technology = null },
+        { source = "SPAN_ATTRIBUTE", parameter_name = null, span_attribute_key = "feature.flag", technology = null },
       ]
     }
   }
